@@ -85,20 +85,9 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
         model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
 
         try:
-            await chat_log.async_provide_llm_data(
-                task.user_input,
-                None,
-                None,
-                None,
-            )
-        except conversation.ConverseError as err:
-            return err.as_conversation_result()
-
-        try:
             chat_log.async_add_user_content(
                 conversation.UserContent(
-                    agent_id=self.entity_id,
-                    content=task.prompt,
+                    content=task.instructions,
                     attachments=task.attachments,
                 )
             )
@@ -170,9 +159,9 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
         model = options.get(CONF_CHAT_MODEL, RECOMMENDED_IMAGE_MODEL)
 
         try:
-            prompt = task.prompt
+            prompt = task.instructions
             if task.attachments:
-                prompt = f"{task.prompt}\n\n[Image attachments provided]"
+                prompt = f"{task.instructions}\n\n[Image attachments provided]"
 
             image_data = await self._client.async_image_generation(
                 prompt=prompt,
@@ -183,7 +172,7 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
             chat_log.async_add_assistant_content_without_tools(
                 conversation.AssistantContent(
                     agent_id=self.entity_id,
-                    content="Generated image for: " + task.prompt,
+                    content="Generated image for: " + task.instructions,
                 )
             )
 
