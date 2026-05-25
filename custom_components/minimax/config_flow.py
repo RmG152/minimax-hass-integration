@@ -45,6 +45,7 @@ from .const import (
     CONF_SPEED,
     CONF_VOICE_ID,
     CONF_VOL,
+    DEFAULT_AI_TASK_NAME,
     DEFAULT_CONVERSATION_EXPIRY_MINUTES,
     DEFAULT_CONVERSATION_MAX_TOKENS,
     DEFAULT_CONVERSATION_NAME,
@@ -58,6 +59,7 @@ from .const import (
     DEFAULT_VOL,
     DOMAIN,
     CHAT_MODELS,
+    RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
@@ -158,6 +160,12 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
                             "title": "MiniMax STT",
                             "unique_id": None,
                         },
+                        {
+                            "subentry_type": "ai_task_data",
+                            "data": RECOMMENDED_AI_TASK_OPTIONS,
+                            "title": DEFAULT_AI_TASK_NAME,
+                            "unique_id": None,
+                        },
                     ],
                 )
         _LOGGER.debug("Showing user form")
@@ -181,6 +189,7 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
             "conversation": LLMSubentryFlowHandler,
             "tts": LLMSubentryFlowHandler,
             "stt": LLMSubentryFlowHandler,
+            "ai_task_data": LLMSubentryFlowHandler,
         }
 
 
@@ -212,6 +221,8 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                     options = RECOMMENDED_TTS_OPTIONS.copy()
                 elif self._subentry_type == "stt":
                     options = RECOMMENDED_STT_OPTIONS.copy()
+                elif self._subentry_type == "ai_task_data":
+                    options = RECOMMENDED_AI_TASK_OPTIONS.copy()
                 else:
                     options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
                 _LOGGER.debug("New subentry, using recommended options: %s", options)
@@ -268,6 +279,8 @@ def async_minimax_option_schema(
                 default_name = "MiniMax TTS"
             elif subentry_type == "stt":
                 default_name = "MiniMax STT"
+            elif subentry_type == "ai_task_data":
+                default_name = DEFAULT_AI_TASK_NAME
             else:
                 default_name = DEFAULT_CONVERSATION_NAME
         schema[vol.Required("name", default=default_name)] = str

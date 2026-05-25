@@ -117,6 +117,26 @@
           }
         }
       }
+    },
+    "ai_task_data": {
+      "abort": {
+        "entry_not_loaded": "Cannot add while the configuration is disabled.",
+        "reconfigure_successful": "Reconfiguration successful."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigure AI Task",
+        "user": "Add AI Task"
+      },
+      "step": {
+        "set_options": {
+          "title": "AI Task",
+          "description": "Configure AI task settings for text and image generation.",
+          "data": {
+            "name": "Name",
+            "recommended": "Use Recommended Settings"
+          }
+        }
+      }
     }
   }
 }

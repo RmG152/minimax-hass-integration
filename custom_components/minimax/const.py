@@ -9,18 +9,21 @@ LOGGER = logging.getLogger(__package__)
 
 DEFAULT_TITLE = "MiniMax"
 DEFAULT_CONVERSATION_NAME = "MiniMax Conversation"
+DEFAULT_STT_NAME = "MiniMax STT"
+DEFAULT_TTS_NAME = "MiniMax TTS"
+DEFAULT_AI_TASK_NAME = "MiniMax AI Task"
 
 PLATFORMS = (
     Platform.CONVERSATION,
     Platform.STT,
     Platform.TTS,
+    Platform.AI_TASK,
 )
 
 MINIMAX_ANTHROPIC_API_URL = "https://api.minimax.io/anthropic/v1/messages"
 MINIMAX_TTS_API = "https://api.minimax.io/v1/t2a_v2"
 MINIMAX_STT_API = "https://api.minimax.io/v1/audio/transcription"
-DEFAULT_STT_NAME = "MiniMax STT"
-DEFAULT_TTS_NAME = "MiniMax TTS"
+MINIMAX_IMAGE_API = "https://api.minimax.io/v1/image_generation"
 
 CONF_API_KEY = "api_key"
 CONF_RECOMMENDED = "recommended"
@@ -31,6 +34,8 @@ CONF_VOICE_ID = "voice_id"
 RECOMMENDED_CHAT_MODEL = "MiniMax-M2.7"
 RECOMMENDED_TTS_MODEL = "speech-2.8-hd"
 RECOMMENDED_STT_MODEL = "MiniMax-M2.7"
+RECOMMENDED_IMAGE_MODEL = "image-01"
+RECOMMENDED_AI_TASK_MAX_TOKENS = 16000
 
 CHAT_MODELS = [
     {"label": "MiniMax-M2.7 (Recommended)", "value": "MiniMax-M2.7"},
@@ -214,4 +219,8 @@ RECOMMENDED_TTS_OPTIONS = {
 RECOMMENDED_STT_OPTIONS = {
     CONF_RECOMMENDED: True,
     CONF_PROMPT: "Transcribe the attached audio",
+}
+
+RECOMMENDED_AI_TASK_OPTIONS = {
+    CONF_RECOMMENDED: True,
 }

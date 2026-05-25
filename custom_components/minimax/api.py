@@ -7,11 +7,13 @@ from typing import Any
 
 import anthropic
 import async_timeout
+import base64
 import httpx
 from aiohttp import ClientSession
 
 from .const import (
     MINIMAX_ANTHROPIC_API_URL,
+    MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
     MINIMAX_TTS_API,
 )
@@ -19,6 +21,7 @@ from .const import (
 TIMEOUT = 30
 TTS_TIMEOUT = 60
 STT_TIMEOUT = 60
+IMAGE_TIMEOUT = 120
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -176,6 +179,52 @@ class MiniMaxApiClient:
 
         except Exception as err:
             _LOGGER.error("STT API error: %s", err)
+            raise MiniMaxApiClientError(str(err)) from err
+
+    async def async_image_generation(
+        self,
+        prompt: str,
+        model: str,
+        aspect_ratio: str = "1:1",
+        response_format: str = "base64",
+    ) -> bytes:
+        """Generate image using MiniMax API."""
+        try:
+            async with async_timeout.timeout(IMAGE_TIMEOUT):
+                response = await self._session.post(
+                    MINIMAX_IMAGE_API,
+                    headers={
+                        "Authorization": f"Bearer {self._api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": model,
+                        "prompt": prompt,
+                        "aspect_ratio": aspect_ratio,
+                        "response_format": response_format,
+                    },
+                )
+                response.raise_for_status()
+                result = await response.json()
+
+                if response_format == "base64":
+                    image_data = result.get("data", {}).get("image_base64", [])
+                    if image_data:
+                        return base64.b64decode(image_data[0])
+                else:
+                    image_urls = result.get("data", {}).get("image_urls", [])
+                    if image_urls:
+                        import httpx
+                        async with httpx.AsyncClient() as client:
+                            img_resp = await client.get(image_urls[0])
+                            img_resp.raise_for_status()
+                            return img_resp.content
+
+                _LOGGER.error("No image data in response")
+                raise MiniMaxApiClientError("No image data in response")
+
+        except Exception as err:
+            _LOGGER.error("Image generation API error: %s", err)
             raise MiniMaxApiClientError(str(err)) from err
 
     async def async_verify_connection(self) -> bool:
