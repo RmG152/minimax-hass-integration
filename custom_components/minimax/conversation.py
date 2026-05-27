@@ -1,21 +1,19 @@
 """Conversation support for MiniMax."""
 
-from __future__ import annotations
-
 import logging
 import re
 import time
-import uuid
 from typing import Any, Literal
+import uuid
 
 from homeassistant.components import conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.const import MATCH_ALL
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import intent
+from homeassistant.helpers import intent, llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import MiniMaxApiClient
+from .api import MiniMaxApiClient, MiniMaxApiClientError
 from .const import (
     CONF_CHAT_MODEL,
     CONF_CONVERSATION_EXPIRY_MINUTES,
@@ -47,10 +45,7 @@ _CHARS_PER_TOKEN = 4
 
 def _get_exposed_entities(hass: HomeAssistant, assistant: str) -> dict[str, Any]:
     """Get exposed entities for the assistant."""
-    from homeassistant.helpers import llm
-
-    exposed_entities = llm._get_exposed_entities(hass, assistant)
-    return exposed_entities
+    return llm._get_exposed_entities(hass, assistant)  # noqa: SLF001
 
 
 def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -> str:
@@ -76,10 +71,11 @@ def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -
                         continue
                     entities_info += f"- {state.name}: {state.state}\n"
 
-        return f"{user_prompt}{entities_info}"
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get exposed entities: %s", err)
         return user_prompt
+    else:
+        return f"{user_prompt}{entities_info}"
 
 
 def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
@@ -113,40 +109,40 @@ def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
                         "description": service_data.get("description", ""),
                         "fields": service_data.get("fields", {}),
                     }
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get service descriptions: %s", err)
         return tools
-
-    for domain, services in descriptions.items():
-        if domain not in key_domains:
-            continue
-
-        for service_name, service_desc in services.items():
-            if service_name.startswith("_"):
+    else:
+        for domain, services in descriptions.items():
+            if domain not in key_domains:
                 continue
 
-            tool_name = f"{domain}.{service_name}"
-            description = service_desc.get(
-                "name", service_desc.get("description", f"{domain} {service_name}")
-            )
+            for service_name, service_desc in services.items():
+                if service_name.startswith("_"):
+                    continue
 
-            properties = {}
-            required = []
-            fields = service_desc.get("fields", {})
+                tool_name = f"{domain}.{service_name}"
+                description = service_desc.get(
+                    "name", service_desc.get("description", f"{domain} {service_name}")
+                )
 
-            for field_name, field_desc in fields.items():
-                field_type = "string"
-                if field_desc.get("schema"):
+                properties = {}
+                required = []
+                fields = service_desc.get("fields", {})
+
+                for field_name, field_desc in fields.items():
                     field_type = "string"
-                elif field_desc.get("example"):
-                    field_type = type(field_desc["example"]).__name__
+                    if field_desc.get("schema"):
+                        field_type = "string"
+                    elif field_desc.get("example"):
+                        field_type = type(field_desc["example"]).__name__
 
-                properties[field_name] = {
-                    "type": field_type,
-                    "description": field_desc.get("description", field_name),
-                }
-                if field_desc.get("required"):
-                    required.append(field_name)
+                    properties[field_name] = {
+                        "type": field_type,
+                        "description": field_desc.get("description", field_name),
+                    }
+                    if field_desc.get("required"):
+                        required.append(field_name)
 
             if "entity_id" not in properties:
                 properties["entity_id"] = {
@@ -226,10 +222,11 @@ async def _call_service(
             return_response=True,
         )
         LOGGER.debug("Service call %s.%s result: %s", domain, service, result)
-        return {"success": True, "result": result}
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         LOGGER.error("Service call failed: %s", err)
         return {"success": False, "error": str(err)}
+    else:
+        return {"success": True, "result": result}
 
 
 async def async_setup_entry(
@@ -439,7 +436,7 @@ class MiniMaxConversationEntity(
             memory_id = await self._memory_store.async_add_fact(fact, category)
             return f"Remembered: {fact} (ID: {memory_id[:8]}...)"
 
-        elif name == "recall_user_facts":
+        if name == "recall_user_facts":
             facts = await self._memory_store.async_get_facts()
             if not facts:
                 return "No memories stored yet."
@@ -447,9 +444,9 @@ class MiniMaxConversationEntity(
             for f in facts:
                 cat = f.get("category", "other")
                 fact_list.append(f"- [{cat}] {f['fact']}")
-            return f"Remembered facts:\n" + "\n".join(fact_list)
+            return "Remembered facts:\n" + "\n".join(fact_list)
 
-        elif name == "forget_user_fact":
+        if name == "forget_user_fact":
             fact = args.get("fact", "")
             if not fact:
                 return "No fact specified to forget"
@@ -458,7 +455,7 @@ class MiniMaxConversationEntity(
                 return f"Forgotten: {fact}"
             return f"Could not find memory matching: {fact}"
 
-        elif name == "forget_all_user_facts":
+        if name == "forget_all_user_facts":
             count = await self._memory_store.async_get_memory_count()
             await self._memory_store.async_clear()
             return f"Cleared all {count} memories"
@@ -475,15 +472,13 @@ class MiniMaxConversationEntity(
             if not memories:
                 return ""
 
-            memory_lines = ["\n\n## Known User Facts:"]
-            for m in memories:
-                cat = m.get("category", "other")
-                memory_lines.append(f"- {m['fact']}")
+            memory_lines = ["\n\n## Known User Facts:", *(f"- {m['fact']}" for m in memories)]
 
-            return "\n".join(memory_lines)
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             LOGGER.warning("Could not get memories for system prompt: %s", err)
             return ""
+        else:
+            return "\n".join(memory_lines)
 
     async def _chat_with_api(
         self,
@@ -498,12 +493,12 @@ class MiniMaxConversationEntity(
             model=model,
             messages=messages,
             system_prompt=system_prompt,
-            tools=tools if tools else None,
+            tools=tools or None,
         )
 
         if not result.get("success", False):
             error = result.get("error", "Unknown error")
-            raise Exception(f"API error: {error}")
+            raise MiniMaxApiClientError(f"API error: {error}")
 
         content_blocks = result.get("content", [])
         has_tool_use = result.get("tool_calls", [])
@@ -512,18 +507,16 @@ class MiniMaxConversationEntity(
             tool_calls = []
             text_parts = []
 
-            for block in content_blocks:
-                if block.get("type") == "text":
-                    text_parts.append(block.get("text", ""))
+            text_parts = [block.get("text", "") for block in content_blocks if block.get("type") == "text"]
 
-            for tc in result.get("tool_calls", []):
-                tool_calls.append(
-                    {
-                        "id": tc.get("id", ""),
-                        "name": tc.get("name", ""),
-                        "input": tc.get("input", {}),
-                    }
-                )
+            tool_calls = [
+                {
+                    "id": tc.get("id", ""),
+                    "name": tc.get("name", ""),
+                    "input": tc.get("input", {}),
+                }
+                for tc in result.get("tool_calls", [])
+            ]
 
             if tool_calls:
                 _LOGGER.debug("Tool calls returned: %d", len(tool_calls))
@@ -536,8 +529,7 @@ class MiniMaxConversationEntity(
                     }
                 )
 
-                for result_item in tool_results:
-                    messages.append({"role": "user", "content": [result_item]})
+                messages.extend({"role": "user", "content": [result_item]} for result_item in tool_results)
 
                 try:
                     return await self._chat_with_api(
@@ -559,9 +551,8 @@ class MiniMaxConversationEntity(
 
             text = "\n".join(text_parts) if text_parts else ""
             return text, messages
-        else:
-            text = result.get("text", "")
-            return text, messages
+        text = result.get("text", "")
+        return text, messages
 
     def _cleanup_expired_conversations(self) -> None:
         """Remove expired or oldest conversations to enforce limits."""
@@ -660,9 +651,9 @@ class MiniMaxConversationEntity(
                 "role": "assistant",
                 "content": response_text,
             }
-            new_history = trimmed_history + [user_message, assistant_message]
+            new_history = [*trimmed_history, user_message, assistant_message]
             self._conversation_history[conversation_id] = (new_history, time.time())
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Conversation error: %s", err)
             response_text = "Sorry, I had trouble answering that."
 

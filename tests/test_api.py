@@ -1,20 +1,12 @@
 """Tests for MiniMax API client."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import respx
 from httpx import Response
 import pytest
+import respx
 
-from custom_components.minimax.api import (
-    MiniMaxApiClient,
-    MiniMaxApiClientError,
-    TTS_TIMEOUT,
-    STT_TIMEOUT,
-)
-from custom_components.minimax.const import MINIMAX_ANTHROPIC_API_URL
+from custom_components.minimax.api import MiniMaxApiClient, MiniMaxApiClientError
 
 TEST_API_KEY = "test_api_key_12345"
 
@@ -22,7 +14,6 @@ TEST_API_KEY = "test_api_key_12345"
 @pytest.fixture
 async def api_client(aiohttp_client):
     """Create an API client for testing."""
-    from aiohttp import ClientSession
 
     return MiniMaxApiClient(api_key=TEST_API_KEY, session=aiohttp_client)
 
@@ -32,7 +23,7 @@ class TestMiniMaxApiClientInit:
 
     def test_init(self, api_client: MiniMaxApiClient):
         """Test client initialization."""
-        assert api_client._api_key == TEST_API_KEY
+        assert api_client._api_key == TEST_API_KEY  # noqa: SLF001
 
 
 class TestAsyncChat:
@@ -170,19 +161,21 @@ class TestAsyncTTS:
         mock_session = MagicMock()
         mock_session.post = mock_post
 
-        with patch(
-            "custom_components.minimax.api.async_timeout.timeout",
-            mock_timeout,
+        with (
+            patch(
+                "custom_components.minimax.api.async_timeout.timeout",
+                mock_timeout,
+            ),
+            patch.object(api_client, "_session", mock_session),
         ):
-            with patch.object(api_client, "_session", mock_session):
-                result = await api_client.async_tts(
-                    text="Hello world",
-                    voice_id="English_PlayfulGirl",
-                    speed=1.0,
-                    vol=1.0,
-                    pitch=1.0,
-                    model="speech-2.8-hd",
-                )
+            result = await api_client.async_tts(
+                text="Hello world",
+                voice_id="English_PlayfulGirl",
+                speed=1.0,
+                vol=1.0,
+                pitch=1.0,
+                model="speech-2.8-hd",
+            )
 
         assert result == mock_audio_bytes
 
@@ -215,20 +208,22 @@ class TestAsyncTTS:
         mock_session = MagicMock()
         mock_session.post = mock_post
 
-        with patch(
-            "custom_components.minimax.api.async_timeout.timeout",
-            mock_timeout,
+        with (
+            patch(
+                "custom_components.minimax.api.async_timeout.timeout",
+                mock_timeout,
+            ),
+            patch.object(api_client, "_session", mock_session),
+            pytest.raises(MiniMaxApiClientError),
         ):
-            with patch.object(api_client, "_session", mock_session):
-                with pytest.raises(MiniMaxApiClientError):
-                    await api_client.async_tts(
-                        text="Hello world",
-                        voice_id="English_PlayfulGirl",
-                        speed=1.0,
-                        vol=1.0,
-                        pitch=1.0,
-                        model="speech-2.8-hd",
-                    )
+            await api_client.async_tts(
+                text="Hello world",
+                    voice_id="English_PlayfulGirl",
+                    speed=1.0,
+                    vol=1.0,
+                    pitch=1.0,
+                    model="speech-2.8-hd",
+                )
 
 
 class TestAsyncSTT:
@@ -265,18 +260,20 @@ class TestAsyncSTT:
         mock_session = MagicMock()
         mock_session.post = mock_post
 
-        with patch(
-            "custom_components.minimax.api.async_timeout.timeout",
-            mock_timeout,
+        with (
+            patch(
+                "custom_components.minimax.api.async_timeout.timeout",
+                mock_timeout,
+            ),
+            patch.object(api_client, "_session", mock_session),
         ):
-            with patch.object(api_client, "_session", mock_session):
-                result = await api_client.async_stt(
-                    audio_data=b"fake_audio_content",
-                    model="MiniMax-M2.7",
-                    language="en-US",
-                    prompt="Transcribe the audio.",
-                    audio_format="wav",
-                )
+            result = await api_client.async_stt(
+                audio_data=b"fake_audio_content",
+                model="MiniMax-M2.7",
+                language="en-US",
+                prompt="Transcribe the audio.",
+                audio_format="wav",
+            )
 
         assert result == "This is transcribed text."
 
@@ -309,19 +306,21 @@ class TestAsyncSTT:
         mock_session = MagicMock()
         mock_session.post = mock_post
 
-        with patch(
-            "custom_components.minimax.api.async_timeout.timeout",
-            mock_timeout,
+        with (
+            patch(
+                "custom_components.minimax.api.async_timeout.timeout",
+                mock_timeout,
+            ),
+            patch.object(api_client, "_session", mock_session),
+            pytest.raises(MiniMaxApiClientError),
         ):
-            with patch.object(api_client, "_session", mock_session):
-                with pytest.raises(MiniMaxApiClientError):
-                    await api_client.async_stt(
-                        audio_data=b"fake_audio_content",
-                        model="MiniMax-M2.7",
-                        language="en-US",
-                        prompt="Transcribe the audio.",
-                        audio_format="wav",
-                    )
+            await api_client.async_stt(
+                audio_data=b"fake_audio_content",
+                model="MiniMax-M2.7",
+                language="en-US",
+                prompt="Transcribe the audio.",
+                audio_format="wav",
+            )
 
 
 class TestAsyncVerifyConnection:

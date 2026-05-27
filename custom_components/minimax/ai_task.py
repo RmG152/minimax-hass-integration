@@ -1,7 +1,5 @@
 """AI Task support for MiniMax."""
 
-from __future__ import annotations
-
 import logging
 from typing import TYPE_CHECKING
 
@@ -14,10 +12,9 @@ from homeassistant.util.json import json_loads
 
 from .api import MiniMaxApiClient
 from .const import (
+    AI_TASK_TIMEOUT,
     CONF_CHAT_MODEL,
     CONF_RECOMMENDED,
-    DEFAULT_AI_TASK_NAME,
-    DOMAIN,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_MODEL,
@@ -110,12 +107,12 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 messages=messages,
                 system_prompt=system_prompt,
                 max_tokens=RECOMMENDED_AI_TASK_MAX_TOKENS,
+                timeout=AI_TASK_TIMEOUT,
             )
 
             if not result.get("success", False):
-                raise HomeAssistantError(
-                    f"{ERROR_GETTING_RESPONSE}: {result.get('error', 'Unknown error')}"
-                )
+                msg = f"{ERROR_GETTING_RESPONSE}: {result.get('error', 'Unknown error')}"
+                raise HomeAssistantError(msg)  # noqa: TRY301
 
             text = result.get("text", "")
 

@@ -1,17 +1,13 @@
 """Tests for MiniMax config flow."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigFlowResult
-from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.minimax import config_flow
 from custom_components.minimax.api import MiniMaxApiClientError
-from tests import create_mock_minimax_config_entry
+from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
@@ -123,8 +119,6 @@ class TestMiniMaxSubentryFlow:
 
     async def test_subentry_flow_conversation(self, hass: HomeAssistant):
         """Test subentry flow for conversation."""
-        config_entry = create_mock_minimax_config_entry(hass)
-
         flow = config_flow.LLMSubentryFlowHandler()
         flow.hass = hass
         flow.handler = (config_flow.DOMAIN, "conversation")
@@ -136,8 +130,6 @@ class TestMiniMaxSubentryFlow:
 
     async def test_subentry_flow_tts(self, hass: HomeAssistant):
         """Test subentry flow for TTS."""
-        config_entry = create_mock_minimax_config_entry(hass)
-
         flow = config_flow.LLMSubentryFlowHandler()
         flow.hass = hass
         flow.handler = (config_flow.DOMAIN, "tts")
@@ -149,8 +141,6 @@ class TestMiniMaxSubentryFlow:
 
     async def test_subentry_flow_stt(self, hass: HomeAssistant):
         """Test subentry flow for STT."""
-        config_entry = create_mock_minimax_config_entry(hass)
-
         flow = config_flow.LLMSubentryFlowHandler()
         flow.hass = hass
         flow.handler = (config_flow.DOMAIN, "stt")

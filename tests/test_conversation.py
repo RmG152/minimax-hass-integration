@@ -1,24 +1,15 @@
 """Tests for MiniMax conversation entity."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components import conversation
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import MATCH_ALL
-from homeassistant.core import Context, HomeAssistant
-from aioresponses import aioresponses
 
 from custom_components.minimax import conversation as minimax_conversation
-from custom_components.minimax.const import (
-    CONF_CHAT_MODEL,
-    CONF_CONVERSATION_TTS_ENABLED,
-    CONF_PROMPT,
-    RECOMMENDED_CONVERSATION_OPTIONS,
-)
-from tests import (
+from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
+from homeassistant.components import conversation
+from homeassistant.const import MATCH_ALL
+from homeassistant.core import Context, HomeAssistant
+from tests import (  # noqa: TID251
     CHAT_RESPONSE_SUCCESS,
     create_mock_minimax_client,
     create_mock_minimax_config_entry,
@@ -60,9 +51,9 @@ class TestMiniMaxConversationEntity:
 
     def test_entity_properties(self, mock_conversation_entity):
         """Test entity properties are set correctly."""
-        assert mock_conversation_entity._attr_name == "MiniMax Conversation"
-        assert mock_conversation_entity._attr_unique_id == "conversation_subentry_001"
-        assert mock_conversation_entity._attr_supported_features == (
+        assert mock_conversation_entity._attr_name == "MiniMax Conversation"  # noqa: SLF001
+        assert mock_conversation_entity._attr_unique_id == "conversation_subentry_001"  # noqa: SLF001
+        assert mock_conversation_entity._attr_supported_features == (  # noqa: SLF001
             conversation.ConversationEntityFeature.CONTROL
         )
 
@@ -103,7 +94,7 @@ class TestMiniMaxConversationEntity:
 
         with (
             patch.object(
-                mock_conversation_entity._client,
+                mock_conversation_entity._client,  # noqa: SLF001
                 "async_chat",
                 new_callable=AsyncMock,
                 return_value=CHAT_RESPONSE_SUCCESS.copy(),
@@ -146,7 +137,7 @@ class TestMiniMaxConversationEntity:
 
         with (
             patch.object(
-                mock_conversation_entity._client,
+                mock_conversation_entity._client,  # noqa: SLF001
                 "async_chat",
                 new_callable=AsyncMock,
                 return_value=response_with_thinking,
@@ -182,7 +173,7 @@ class TestMiniMaxConversationEntity:
 
         with (
             patch.object(
-                mock_conversation_entity._client,
+                mock_conversation_entity._client,  # noqa: SLF001
                 "async_chat",
                 new_callable=AsyncMock,
                 return_value={"success": False, "error": "API Error"},
@@ -217,7 +208,7 @@ class TestMiniMaxConversationEntity:
 
         with (
             patch.object(
-                mock_conversation_entity._client,
+                mock_conversation_entity._client,  # noqa: SLF001
                 "async_chat",
                 new_callable=AsyncMock,
                 return_value={"success": True, "text": "", "tool_calls": []},
@@ -246,7 +237,7 @@ class TestConversationSetup:
         self, hass: HomeAssistant, mock_server_response
     ):
         """Test async_setup_entry creates conversation entity."""
-        from custom_components.minimax.conversation import async_setup_entry
+        from custom_components.minimax.conversation import async_setup_entry  # noqa: PLC0415, I001
 
         config_entry = create_mock_minimax_config_entry(hass)
         subentry = MagicMock()
@@ -271,4 +262,4 @@ class TestConversationSetup:
             await hass.async_block_till_done()
 
         assert len(entities_added) == 1
-        assert entities_added[0]._attr_name == "MiniMax Conversation"
+        assert entities_added[0]._attr_name == "MiniMax Conversation"  # noqa: SLF001

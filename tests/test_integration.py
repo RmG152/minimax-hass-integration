@@ -4,31 +4,24 @@ These tests verify that entities properly register with Home Assistant
 and respond correctly to state queries and changes.
 """
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components import conversation, stt
-from homeassistant.components.conversation.models import ConversationInput
-from homeassistant.core import Context
-
-from custom_components.minimax import conversation as minimax_conversation
-from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
 
 from custom_components.minimax import (
-    DOMAIN,
-    MiniMaxApiClient,
     async_setup_entry,
     async_unload_entry,
+    conversation as minimax_conversation,
 )
-from custom_components.minimax.conversation import MiniMaxConversationEntity
 from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
+from custom_components.minimax.conversation import MiniMaxConversationEntity
 from custom_components.minimax.stt import MiniMaxSTTEntity
 from custom_components.minimax.tts import MiniMaxTTSEntity
-from tests import (
+from homeassistant.components import conversation, stt
+from homeassistant.components.conversation.models import ConversationInput
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import Context, HomeAssistant
+from tests import (  # noqa: TID251
     CHAT_RESPONSE_SUCCESS,
     STT_RESPONSE_TEXT,
     TTS_RESPONSE_BYTES,
@@ -208,9 +201,9 @@ class TestTTSEntityRegistration:
 
         entity.hass = hass
 
-        assert entity._attr_name == "MiniMax TTS"
-        assert entity._attr_unique_id == "tts_subentry_001"
-        assert entity._attr_default_language == "en-US"
+        assert entity._attr_name == "MiniMax TTS"  # noqa: SLF001
+        assert entity._attr_unique_id == "tts_subentry_001"  # noqa: SLF001
+        assert entity._attr_default_language == "en-US"  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_tts_entity_generates_audio(
@@ -278,8 +271,8 @@ class TestSTTEntityRegistration:
 
         entity.hass = hass
 
-        assert entity._attr_name == "MiniMax STT"
-        assert entity._attr_unique_id == "stt_subentry_001"
+        assert entity._attr_name == "MiniMax STT"  # noqa: SLF001
+        assert entity._attr_unique_id == "stt_subentry_001"  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_stt_entity_processes_audio_stream(
@@ -325,11 +318,11 @@ class TestIntegrationSetupFlow:
     @pytest.mark.asyncio
     async def test_full_setup_registers_all_entities(self, hass: HomeAssistant):
         """Test full setup registers conversation, TTS, and STT entities."""
-        from custom_components.minimax.conversation import (
+        from custom_components.minimax.conversation import (  # noqa: PLC0415, I001
             async_setup_entry as conv_setup,
         )
-        from custom_components.minimax.stt import async_setup_entry as stt_setup
-        from custom_components.minimax.tts import async_setup_entry as tts_setup
+        from custom_components.minimax.stt import async_setup_entry as stt_setup  # noqa: PLC0415
+        from custom_components.minimax.tts import async_setup_entry as tts_setup  # noqa: PLC0415
 
         config_entry = create_mock_minimax_config_entry(hass)
 
@@ -391,9 +384,9 @@ class TestIntegrationSetupFlow:
         assert len(tts_entities_added) == 1
         assert len(stt_entities_added) == 1
 
-        assert conv_entities_added[0]._attr_name == "MiniMax Conversation"
-        assert tts_entities_added[0]._attr_name == "MiniMax TTS"
-        assert stt_entities_added[0]._attr_name == "MiniMax STT"
+        assert conv_entities_added[0]._attr_name == "MiniMax Conversation"  # noqa: SLF001
+        assert tts_entities_added[0]._attr_name == "MiniMax TTS"  # noqa: SLF001
+        assert stt_entities_added[0]._attr_name == "MiniMax STT"  # noqa: SLF001
 
     @pytest.mark.asyncio
     async def test_integration_unload_removes_entities(self, hass: HomeAssistant):
@@ -428,7 +421,7 @@ class TestEntityProperties:
         self, hass: HomeAssistant
     ):
         """Test conversation entity has correct supported features."""
-        from custom_components.minimax.conversation import (
+        from custom_components.minimax.conversation import (  # noqa: PLC0415
             MiniMaxConversationEntity,
             conversation,
         )
@@ -459,7 +452,6 @@ class TestEntityProperties:
         self, hass: HomeAssistant
     ):
         """Test TTS entity supports correct languages and voices."""
-        from custom_components.minimax.const import VOICE_IDS
 
         config_entry = create_mock_minimax_config_entry(hass)
         subentry = MagicMock()

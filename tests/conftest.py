@@ -1,7 +1,5 @@
 """Pytest configuration for MiniMax integration tests."""
 
-from __future__ import annotations
-
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import patch
@@ -10,8 +8,6 @@ import pytest
 from pytest_homeassistant_custom_component.plugins import (  # noqa: F401
     enable_custom_integrations,
 )
-
-from homeassistant.core import HomeAssistant
 
 pytest_plugins = "pytest_homeassistant_custom_component"
 
@@ -34,7 +30,6 @@ def minimax_fixture(
     hass: Any,
 ) -> None:
     """Automatically use an ordered combination of fixtures."""
-    pass
 
 
 @pytest.fixture

@@ -1,21 +1,14 @@
 """Tests for MiniMax STT entity."""
 
-from __future__ import annotations
-
-import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components import stt
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 
 from custom_components.minimax import stt as minimax_stt
-from custom_components.minimax.const import (
-    CONF_PROMPT,
-    RECOMMENDED_STT_OPTIONS,
-)
-from tests import (
+from custom_components.minimax.const import RECOMMENDED_STT_OPTIONS
+from homeassistant.components import stt
+from homeassistant.core import HomeAssistant
+from tests import (  # noqa: TID251
     STT_RESPONSE_TEXT,
     create_mock_minimax_client,
     create_mock_minimax_config_entry,
@@ -53,8 +46,8 @@ class TestMiniMaxSTTEntity:
 
     def test_entity_properties(self, mock_stt_entity):
         """Test entity properties are set correctly."""
-        assert mock_stt_entity._attr_name == "MiniMax STT"
-        assert mock_stt_entity._attr_unique_id == "stt_subentry_001"
+        assert mock_stt_entity._attr_name == "MiniMax STT"  # noqa: SLF001
+        assert mock_stt_entity._attr_unique_id == "stt_subentry_001"  # noqa: SLF001
 
     def test_supported_languages(self, mock_stt_entity):
         """Test supported_languages returns correct languages."""
@@ -101,7 +94,7 @@ class TestMiniMaxSTTEntity:
         audio_stream = await async_gen(b"fake_audio_data")
 
         with patch.object(
-            mock_stt_entity._client,
+            mock_stt_entity._client,  # noqa: SLF001
             "async_stt",
             new_callable=AsyncMock,
             return_value=STT_RESPONSE_TEXT,
@@ -128,7 +121,7 @@ class TestMiniMaxSTTEntity:
         audio_stream = await async_gen(b"fake_audio_data")
 
         with patch.object(
-            mock_stt_entity._client,
+            mock_stt_entity._client,  # noqa: SLF001
             "async_stt",
             new_callable=AsyncMock,
             return_value="",
@@ -155,7 +148,7 @@ class TestMiniMaxSTTEntity:
         audio_stream = await async_gen(b"fake_audio_data")
 
         with patch.object(
-            mock_stt_entity._client,
+            mock_stt_entity._client,  # noqa: SLF001
             "async_stt",
             new_callable=AsyncMock,
             side_effect=Exception("STT API Error"),
@@ -176,7 +169,7 @@ class TestSTTSetup:
         self, hass: HomeAssistant, mock_server_response
     ):
         """Test async_setup_entry creates STT entity."""
-        from custom_components.minimax.stt import async_setup_entry
+        from custom_components.minimax.stt import async_setup_entry  # noqa: PLC0415
 
         config_entry = create_mock_minimax_config_entry(hass)
         subentry = MagicMock()
@@ -201,7 +194,7 @@ class TestSTTSetup:
             await hass.async_block_till_done()
 
         assert len(entities_added) == 1
-        assert entities_added[0]._attr_name == "MiniMax STT"
+        assert entities_added[0]._attr_name == "MiniMax STT"  # noqa: SLF001
 
 
 async def async_gen(data: bytes):

@@ -1,14 +1,8 @@
 """Tests for MiniMax TTS entity."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.components import tts
-from homeassistant.components.tts import ATTR_VOICE
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
 
 from custom_components.minimax import tts as minimax_tts
 from custom_components.minimax.const import (
@@ -19,7 +13,9 @@ from custom_components.minimax.const import (
     RECOMMENDED_TTS_OPTIONS,
     VOICE_IDS,
 )
-from tests import (
+from homeassistant.components.tts import ATTR_VOICE
+from homeassistant.core import HomeAssistant
+from tests import (  # noqa: TID251
     TTS_RESPONSE_BYTES,
     create_mock_minimax_client,
     create_mock_minimax_config_entry,
@@ -57,9 +53,9 @@ class TestMiniMaxTTSEntity:
 
     def test_entity_properties(self, mock_tts_entity):
         """Test entity properties are set correctly."""
-        assert mock_tts_entity._attr_name == "MiniMax TTS"
-        assert mock_tts_entity._attr_unique_id == "tts_subentry_001"
-        assert mock_tts_entity._attr_default_language == "en-US"
+        assert mock_tts_entity._attr_name == "MiniMax TTS"  # noqa: SLF001
+        assert mock_tts_entity._attr_unique_id == "tts_subentry_001"  # noqa: SLF001
+        assert mock_tts_entity._attr_default_language == "en-US"  # noqa: SLF001
 
     def test_supported_options(self, mock_tts_entity):
         """Test supported_options returns correct options."""
@@ -93,7 +89,7 @@ class TestMiniMaxTTSEntity:
     async def test_async_get_tts_audio_success(self, mock_tts_entity, hass):
         """Test async_get_tts_audio returns successful audio."""
         with patch.object(
-            mock_tts_entity._client,
+            mock_tts_entity._client,  # noqa: SLF001
             "async_tts",
             new_callable=AsyncMock,
             return_value=TTS_RESPONSE_BYTES,
@@ -118,7 +114,7 @@ class TestMiniMaxTTSEntity:
         }
 
         with patch.object(
-            mock_tts_entity._client,
+            mock_tts_entity._client,  # noqa: SLF001
             "async_tts",
             new_callable=AsyncMock,
             return_value=TTS_RESPONSE_BYTES,
@@ -140,7 +136,7 @@ class TestMiniMaxTTSEntity:
     async def test_async_get_tts_audio_error(self, mock_tts_entity, hass):
         """Test async_get_tts_audio handles errors gracefully."""
         with patch.object(
-            mock_tts_entity._client,
+            mock_tts_entity._client,  # noqa: SLF001
             "async_tts",
             new_callable=AsyncMock,
             side_effect=Exception("TTS API Error"),
@@ -160,7 +156,7 @@ class TestMiniMaxTTSEntity:
     ):
         """Test async_get_tts_audio uses subentry default options."""
         with patch.object(
-            mock_tts_entity._client,
+            mock_tts_entity._client,  # noqa: SLF001
             "async_tts",
             new_callable=AsyncMock,
             return_value=TTS_RESPONSE_BYTES,
@@ -187,7 +183,7 @@ class TestTTSSetup:
         self, hass: HomeAssistant, mock_server_response
     ):
         """Test async_setup_entry creates TTS entity."""
-        from custom_components.minimax.tts import async_setup_entry
+        from custom_components.minimax.tts import async_setup_entry  # noqa: PLC0415
 
         config_entry = create_mock_minimax_config_entry(hass)
         subentry = MagicMock()
@@ -212,4 +208,4 @@ class TestTTSSetup:
             await hass.async_block_till_done()
 
         assert len(entities_added) == 1
-        assert entities_added[0]._attr_name == "MiniMax TTS"
+        assert entities_added[0]._attr_name == "MiniMax TTS"  # noqa: SLF001

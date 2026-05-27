@@ -1,14 +1,12 @@
 """Tests for the MiniMax integration."""
 
-from __future__ import annotations
-
 import contextlib
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
-import respx
 from aioresponses import aioresponses
 from pytest_homeassistant_custom_component.common import MockConfigEntry
+import respx
 
 from custom_components.minimax.const import DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -77,12 +75,8 @@ async def setup_mock_minimax_config_entry(
     client: AsyncMock | None = None,
 ) -> ConfigEntry:
     """Add a mock MiniMax config entry to hass."""
-    from custom_components.minimax import MiniMaxApiClient
-
     config_entry = config_entry or create_mock_minimax_config_entry(hass)
     client = client or create_mock_minimax_client()
-
-    mock_runtime_data = client if isinstance(client, MiniMaxApiClient) else client
 
     with (
         respx.mock,

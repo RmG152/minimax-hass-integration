@@ -1,19 +1,11 @@
 """Tests for MiniMax integration init."""
 
-from __future__ import annotations
-
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from homeassistant.config_entries import ConfigEntry
 
-from custom_components.minimax import (
-    DOMAIN,
-    MiniMaxApiClient,
-    async_setup_entry,
-    async_unload_entry,
-)
-from tests import (
+from custom_components.minimax import async_setup_entry, async_unload_entry
+from tests import (  # noqa: TID251
     create_mock_minimax_client,
     create_mock_minimax_config_entry,
 )

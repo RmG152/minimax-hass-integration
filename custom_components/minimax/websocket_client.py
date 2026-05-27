@@ -2,6 +2,7 @@
 
 import json
 import logging
+
 import aiohttp
 
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
@@ -10,7 +11,20 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class MiniMaxWebSocketClient:
-    def __init__(self, hass, api_key: str, model: str, voice: str, language: str, speed: float, vol: float, pitch: int):
+    """WebSocket client for MiniMax TTS streaming."""
+
+    def __init__(
+        self,
+        hass,
+        api_key: str,
+        model: str,
+        voice: str,
+        language: str,
+        speed: float,
+        vol: float,
+        pitch: int,
+    ) -> None:
+        """Initialize the WebSocket client."""
         self._hass = hass
         self._api_key = api_key
         self._voice = voice
@@ -23,6 +37,7 @@ class MiniMaxWebSocketClient:
         self._url = "wss://api.minimax.io/ws/v1/t2a_v2"
 
     async def synthesize(self, text: str) -> bytes:
+        """Synthesize text to speech via WebSocket."""
         session = async_get_clientsession(self._hass)
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -102,8 +117,8 @@ class MiniMaxWebSocketClient:
                     elif msg.type == aiohttp.WSMsgType.ERROR:
                         break
 
-        except Exception as e:
-            _LOGGER.exception("Critical exception in client: %s", e)
+        except Exception:
+            _LOGGER.exception("Critical exception in client")
             return None
 
         if not full_audio_bytes:

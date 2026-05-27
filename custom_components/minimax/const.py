@@ -36,6 +36,7 @@ RECOMMENDED_TTS_MODEL = "speech-2.8-hd"
 RECOMMENDED_STT_MODEL = "MiniMax-M2.7"
 RECOMMENDED_IMAGE_MODEL = "image-01"
 RECOMMENDED_AI_TASK_MAX_TOKENS = 16000
+AI_TASK_TIMEOUT = 120
 
 CHAT_MODELS = [
     {"label": "MiniMax-M2.7 (Recommended)", "value": "MiniMax-M2.7"},

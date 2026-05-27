@@ -1,15 +1,13 @@
 """MiniMax API client."""
 
-from __future__ import annotations
-
+import asyncio
+import base64
 import logging
 from typing import Any
 
-import anthropic
-import async_timeout
-import base64
-import httpx
 from aiohttp import ClientSession
+import anthropic
+import httpx
 
 from .const import (
     MINIMAX_ANTHROPIC_API_URL,
@@ -18,10 +16,11 @@ from .const import (
     MINIMAX_TTS_API,
 )
 
-TIMEOUT = 30
+TIMEOUT = 60
 TTS_TIMEOUT = 60
 STT_TIMEOUT = 60
 IMAGE_TIMEOUT = 120
+AI_TASK_TIMEOUT = 120
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +44,7 @@ class MiniMaxApiClient:
             api_key=api_key,
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
-                timeout=httpx.Timeout(TIMEOUT),
+                timeout=httpx.Timeout(AI_TASK_TIMEOUT),
                 verify=False,
             ),
         )
@@ -57,15 +56,20 @@ class MiniMaxApiClient:
         system_prompt: str,
         max_tokens: int = 1024,
         tools: list[dict[str, Any]] | None = None,
+        timeout: float | None = None,
     ) -> dict[str, Any]:
         """Send chat request using Anthropic SDK."""
         try:
+            kwargs: dict[str, Any] = {}
+            if timeout is not None:
+                kwargs["timeout"] = timeout
             response = await self._anthropic.messages.create(
                 model=model,
                 max_tokens=max_tokens,
                 system=system_prompt,
                 messages=messages,
                 tools=tools,
+                **kwargs,
             )
 
             content_blocks = response.content
@@ -93,7 +97,7 @@ class MiniMaxApiClient:
                 "stop_reason": response.stop_reason,
             }
 
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Anthropic API error: %s", err)
             return {
                 "success": False,
@@ -111,7 +115,7 @@ class MiniMaxApiClient:
     ) -> bytes:
         """Generate TTS audio using MiniMax API."""
         try:
-            async with async_timeout.timeout(TTS_TIMEOUT):
+            async with asyncio.timeout(TTS_TIMEOUT):
                 response = await self._session.post(
                     MINIMAX_TTS_API,
                     headers={
@@ -138,7 +142,7 @@ class MiniMaxApiClient:
                     return bytes.fromhex(audio_hex)
 
                 _LOGGER.error("No audio data in TTS response")
-                raise MiniMaxApiClientError("No audio data in response")
+                raise MiniMaxApiClientError("No audio data in response")  # noqa: TRY301
 
         except Exception as err:
             _LOGGER.error("TTS API error: %s", err)
@@ -154,7 +158,7 @@ class MiniMaxApiClient:
     ) -> str:
         """Transcribe audio using MiniMax STT API."""
         try:
-            async with async_timeout.timeout(STT_TIMEOUT):
+            async with asyncio.timeout(STT_TIMEOUT):
                 form_data = {
                     "file": ("audio.wav", audio_data, f"audio/{audio_format}"),
                     "model": (None, model),
@@ -175,7 +179,7 @@ class MiniMaxApiClient:
                     return text
 
                 _LOGGER.warning("STT returned empty text")
-                raise MiniMaxApiClientError("STT returned empty text")
+                raise MiniMaxApiClientError("STT returned empty text")  # noqa: TRY301
 
         except Exception as err:
             _LOGGER.error("STT API error: %s", err)
@@ -190,7 +194,7 @@ class MiniMaxApiClient:
     ) -> bytes:
         """Generate image using MiniMax API."""
         try:
-            async with async_timeout.timeout(IMAGE_TIMEOUT):
+            async with asyncio.timeout(IMAGE_TIMEOUT):
                 response = await self._session.post(
                     MINIMAX_IMAGE_API,
                     headers={
@@ -214,14 +218,13 @@ class MiniMaxApiClient:
                 else:
                     image_urls = result.get("data", {}).get("image_urls", [])
                     if image_urls:
-                        import httpx
                         async with httpx.AsyncClient() as client:
                             img_resp = await client.get(image_urls[0])
                             img_resp.raise_for_status()
                             return img_resp.content
 
                 _LOGGER.error("No image data in response")
-                raise MiniMaxApiClientError("No image data in response")
+                raise MiniMaxApiClientError("No image data in response")  # noqa: TRY301
 
         except Exception as err:
             _LOGGER.error("Image generation API error: %s", err)

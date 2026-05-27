@@ -6,8 +6,8 @@
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "requirements": ["anthropic"],
-  "codeowners": ["@double-em"],
-  "documentation": "https://github.com/double-em/minimax-hass-integration",
-  "issue_tracker": "https://github.com/double-em/minimax-hass-integration/issues",
+  "codeowners": ["@RmG152"],
+  "documentation": "https://github.com/RmG152/minimax-hass-integration",
+  "issue_tracker": "https://github.com/RmG152/minimax-hass-integration/issues",
   "icon": "https://play-lh.googleusercontent.com/hsPVehKUDPBS1LiaAkitNSmZtVNjb5-zbnlhHuNid42l5RMWWVEEiHqF5vSawdNK6ro"
 }

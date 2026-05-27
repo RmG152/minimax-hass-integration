@@ -1,18 +1,12 @@
 """Persistent memory storage for MiniMax conversation agent."""
 
-from __future__ import annotations
-
 import time
 import uuid
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import (
-    DEFAULT_MEMORY_EXPIRY_DAYS,
-    DEFAULT_MEMORY_MAX_COUNT,
-    LOGGER,
-)
+from .const import DEFAULT_MEMORY_EXPIRY_DAYS, DEFAULT_MEMORY_MAX_COUNT, LOGGER
 
 MEMORY_STORE_VERSION = 1
 MEMORY_STORE_KEY = "minimax.memories"
