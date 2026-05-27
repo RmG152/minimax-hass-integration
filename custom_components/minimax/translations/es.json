@@ -66,18 +66,18 @@
       }
     },
     "stt": {
-      "entry_type": "Texto a Voz",
+      "entry_type": "Voz a Texto",
       "abort": {
         "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
         "reconfigure_successful": "Reconfiguración correcta."
       },
       "initiate_flow": {
-        "reconfigure": "Reconfigurar texto a voz",
-        "user": "Añadir texto a voz"
+        "reconfigure": "Reconfigurar voz a texto",
+        "user": "Añadir voz a texto"
       },
       "step": {
         "set_options": {
-          "title": "Texto a Voz",
+          "title": "Voz a Texto",
           "description": "Configura cómo se transcribe el audio.",
           "data": {
             "name": "Nombre",
@@ -91,18 +91,18 @@
       }
     },
     "tts": {
-      "entry_type": "Voz a Texto",
+      "entry_type": "Texto a Voz",
       "abort": {
         "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
         "reconfigure_successful": "Reconfiguración correcta."
       },
       "initiate_flow": {
-        "reconfigure": "Reconfigurar voz a texto",
-        "user": "Añadir voz a texto"
+        "reconfigure": "Reconfigurar texto a voz",
+        "user": "Añadir texto a voz"
       },
       "step": {
         "set_options": {
-          "title": "Voz a Texto",
+          "title": "Texto a Voz",
           "description": "Configura los ajustes de salida de voz.",
           "data": {
             "name": "Nombre",

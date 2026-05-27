@@ -66,18 +66,18 @@
       }
     },
     "stt": {
-      "entry_type": "Text a Veu",
+      "entry_type": "Veu a Text",
       "abort": {
         "entry_not_loaded": "No es pot afegir mentre la configuració està deshabilitada.",
         "reconfigure_successful": "Reconfiguració correcta."
       },
       "initiate_flow": {
-        "reconfigure": "Reconfigurar text a veu",
-        "user": "Afegir text a veu"
+        "reconfigure": "Reconfigurar veu a text",
+        "user": "Afegir veu a text"
       },
       "step": {
         "set_options": {
-          "title": "Text a Veu",
+          "title": "Veu a Text",
           "description": "Configura com es transcriu l'àudio.",
           "data": {
             "name": "Nom",
@@ -91,18 +91,18 @@
       }
     },
     "tts": {
-      "entry_type": "Veu a Text",
+      "entry_type": "Text a Veu",
       "abort": {
         "entry_not_loaded": "No es pot afegir mentre la configuració està deshabilitada.",
         "reconfigure_successful": "Reconfiguració correcta."
       },
       "initiate_flow": {
-        "reconfigure": "Reconfigurar veu a text",
-        "user": "Afegir veu a text"
+        "reconfigure": "Reconfigurar text a veu",
+        "user": "Afegir text a veu"
       },
       "step": {
         "set_options": {
-          "title": "Veu a Text",
+          "title": "Text a Veu",
           "description": "Configura els ajustos de sortida de veu.",
           "data": {
             "name": "Nom",
