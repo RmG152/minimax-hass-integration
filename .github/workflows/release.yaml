@@ -1,0 +1,48 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - name: Update manifest.json version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          python -c "import json; path='custom_components/minimax/manifest.json'; m=json.load(open(path)); m['version']='${VERSION}'; open(path,'w').write(json.dumps(m,indent=2)+'\n')"
+
+      - name: Commit updated manifest.json
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/minimax/manifest.json
+          git commit -m "Bump manifest version to $VERSION"
+          git push origin main
+
+      - name: Create release zip
+        run: |
+          cd custom_components/minimax
+          zip -r ../../minimax.zip . \
+            -x "*/__pycache__/*" "*.pyc" ".DS_Store"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: minimax.zip
+          generate_release_notes: true
