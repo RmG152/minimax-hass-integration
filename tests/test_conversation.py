@@ -8,7 +8,7 @@ from custom_components.minimax import conversation as minimax_conversation
 from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
 from homeassistant.components import conversation
 from homeassistant.const import MATCH_ALL
-from homeassistant.core import Context, HomeAssistant
+from homeassistant.core import Context
 
 
 def _make_subentry(subentry_type="conversation", data=None, title=None):
@@ -47,6 +47,7 @@ class TestMiniMaxConversationEntity:
 
             def set_hass(hass):
                 pass
+
             instance.set_hass = MagicMock(side_effect=set_hass)
 
             mock.return_value = instance
@@ -152,8 +153,14 @@ class TestMiniMaxConversationEntity:
         response["text"] = "<think>internal</think>Hello! How can I help you?"
 
         with (
-            patch("custom_components.minimax.conversation._get_homeassistant_tools", return_value=[]),
-            patch("custom_components.minimax.conversation._build_system_prompt", return_value=""),
+            patch(
+                "custom_components.minimax.conversation._get_homeassistant_tools",
+                return_value=[],
+            ),
+            patch(
+                "custom_components.minimax.conversation._build_system_prompt",
+                return_value="",
+            ),
         ):
             entity._client.async_chat = AsyncMock(return_value=response)
             result = await entity.async_process(user_input)
@@ -192,8 +199,14 @@ class TestMiniMaxConversationEntity:
         )
 
         with (
-            patch("custom_components.minimax.conversation._get_homeassistant_tools", return_value=[]),
-            patch("custom_components.minimax.conversation._build_system_prompt", return_value=""),
+            patch(
+                "custom_components.minimax.conversation._get_homeassistant_tools",
+                return_value=[],
+            ),
+            patch(
+                "custom_components.minimax.conversation._build_system_prompt",
+                return_value="",
+            ),
         ):
             entity._client.async_chat = AsyncMock(
                 return_value={"success": False, "error": "API Error"}
@@ -216,8 +229,14 @@ class TestMiniMaxConversationEntity:
         )
 
         with (
-            patch("custom_components.minimax.conversation._get_homeassistant_tools", return_value=[]),
-            patch("custom_components.minimax.conversation._build_system_prompt", return_value=""),
+            patch(
+                "custom_components.minimax.conversation._get_homeassistant_tools",
+                return_value=[],
+            ),
+            patch(
+                "custom_components.minimax.conversation._build_system_prompt",
+                return_value="",
+            ),
         ):
             entity._client.async_chat = AsyncMock(
                 return_value={"success": True, "text": "", "tool_calls": []}
@@ -283,6 +302,7 @@ class TestConversationMemoryTools:
 
             def set_hass(hass):
                 pass
+
             instance.set_hass = MagicMock(side_effect=set_hass)
 
             mock.return_value = instance
@@ -306,11 +326,10 @@ class TestConversationMemoryTools:
     @pytest.mark.asyncio
     async def test_remember_fact(self, entity, hass):
         """Test remembering a fact."""
-        entity._memory_store.async_add_fact = AsyncMock(
-            return_value="mem_12345678"
-        )
+        entity._memory_store.async_add_fact = AsyncMock(return_value="mem_12345678")
         result = await entity._execute_memory_tool(
-            "remember_user_fact", {"fact": "User likes coffee", "category": "preference"}
+            "remember_user_fact",
+            {"fact": "User likes coffee", "category": "preference"},
         )
         assert "Remembered" in result
         assert "mem_1234" in result
@@ -325,7 +344,9 @@ class TestConversationMemoryTools:
     async def test_recall_facts(self, entity, hass):
         """Test recalling facts."""
         entity._memory_store.async_get_facts = AsyncMock(
-            return_value=[{"fact": "User likes coffee", "category": "preference", "id": "1"}]
+            return_value=[
+                {"fact": "User likes coffee", "category": "preference", "id": "1"}
+            ]
         )
         result = await entity._execute_memory_tool("recall_user_facts", {})
         assert "coffee" in result
@@ -341,14 +362,18 @@ class TestConversationMemoryTools:
     async def test_forget_fact(self, entity, hass):
         """Test forgetting a fact."""
         entity._memory_store.async_remove_fact = AsyncMock(return_value=True)
-        result = await entity._execute_memory_tool("forget_user_fact", {"fact": "coffee"})
+        result = await entity._execute_memory_tool(
+            "forget_user_fact", {"fact": "coffee"}
+        )
         assert "Forgotten" in result
 
     @pytest.mark.asyncio
     async def test_forget_fact_not_found(self, entity, hass):
         """Test forgetting a fact that doesn't exist."""
         entity._memory_store.async_remove_fact = AsyncMock(return_value=False)
-        result = await entity._execute_memory_tool("forget_user_fact", {"fact": "nonexistent"})
+        result = await entity._execute_memory_tool(
+            "forget_user_fact", {"fact": "nonexistent"}
+        )
         assert "Could not find" in result
 
     @pytest.mark.asyncio
@@ -375,7 +400,11 @@ class TestConversationMemoryTools:
     async def test_execute_tool_calls_service(self, entity, hass):
         """Test executing a HA service tool call."""
         tool_calls = [
-            {"id": "call_1", "name": "light.turn_on", "input": {"entity_id": "light.living_room"}}
+            {
+                "id": "call_1",
+                "name": "light.turn_on",
+                "input": {"entity_id": "light.living_room"},
+            }
         ]
         results = await entity._execute_tool_calls(tool_calls, [])
         assert len(results) == 1
@@ -384,9 +413,7 @@ class TestConversationMemoryTools:
     @pytest.mark.asyncio
     async def test_execute_tool_calls_invalid_name(self, entity, hass):
         """Test executing a tool call with invalid name format."""
-        tool_calls = [
-            {"id": "call_1", "name": "invalid_tool_name", "input": {}}
-        ]
+        tool_calls = [{"id": "call_1", "name": "invalid_tool_name", "input": {}}]
         results = await entity._execute_tool_calls(tool_calls, [])
         assert "Invalid tool name" in results[0]["content"]
 
@@ -415,6 +442,7 @@ class TestConversationCleanup:
 
             def set_hass(hass):
                 pass
+
             instance.set_hass = MagicMock(side_effect=set_hass)
 
             mock.return_value = instance
@@ -485,9 +513,7 @@ class TestConversationSetup:
             entities_added.extend(entities)
 
         with patch("custom_components.minimax.conversation.MemoryStore"):
-            await minimax_conversation.async_setup_entry(
-                hass, entry, mock_add_entities
-            )
+            await minimax_conversation.async_setup_entry(hass, entry, mock_add_entities)
 
         assert len(entities_added) == 1
         assert entities_added[0]._attr_name == "MiniMax Conversation"
@@ -509,8 +535,6 @@ class TestConversationSetup:
         def mock_add_entities(entities, config_subentry_id=None):
             entities_added.extend(entities)
 
-        await minimax_conversation.async_setup_entry(
-            hass, entry, mock_add_entities
-        )
+        await minimax_conversation.async_setup_entry(hass, entry, mock_add_entities)
 
         assert len(entities_added) == 0

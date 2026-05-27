@@ -18,7 +18,9 @@ class TestAsyncSetupEntry:
         config_entry = create_mock_minimax_config_entry(hass)
         mock_client = create_mock_minimax_client()
 
-        with patch("custom_components.minimax.MiniMaxApiClient", return_value=mock_client):
+        with patch(
+            "custom_components.minimax.MiniMaxApiClient", return_value=mock_client
+        ):
             result = await async_setup_entry(hass, config_entry)
 
         assert result is True
@@ -101,7 +103,9 @@ class TestAsyncUnloadEntry:
         config_entry = create_mock_minimax_config_entry(hass)
         mock_client = create_mock_minimax_client()
 
-        with patch("custom_components.minimax.MiniMaxApiClient", return_value=mock_client):
+        with patch(
+            "custom_components.minimax.MiniMaxApiClient", return_value=mock_client
+        ):
             await async_setup_entry(hass, config_entry)
 
         result = await async_unload_entry(hass, config_entry)
@@ -130,7 +134,9 @@ class TestMiniMaxRuntimeData:
         config_entry = create_mock_minimax_config_entry(hass)
         mock_client = create_mock_minimax_client()
 
-        with patch("custom_components.minimax.MiniMaxApiClient", return_value=mock_client):
+        with patch(
+            "custom_components.minimax.MiniMaxApiClient", return_value=mock_client
+        ):
             await async_setup_entry(hass, config_entry)
 
         assert config_entry.runtime_data is mock_client

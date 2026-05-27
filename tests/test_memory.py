@@ -176,9 +176,7 @@ class TestMemoryStoreFacts:
             {"id": "2", "fact": "Middle", "created_at": 200.0},
             {"id": "3", "fact": "Newest", "created_at": 300.0},
         ]
-        mock_instance.async_load = AsyncMock(
-            return_value={TEST_ENTRY_ID: existing}
-        )
+        mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: existing})
         memory_store.set_hass(hass)
 
         await memory_store.async_add_fact("New fact")
@@ -196,12 +194,15 @@ class TestMemoryStoreFacts:
         mock_cls, mock_instance = mock_store
         now = time.time()
         facts = [
-            {"id": "1", "fact": "Fact one", "category": "preference",
-             "created_at": now, "last_accessed": now},
+            {
+                "id": "1",
+                "fact": "Fact one",
+                "category": "preference",
+                "created_at": now,
+                "last_accessed": now,
+            },
         ]
-        mock_instance.async_load = AsyncMock(
-            return_value={TEST_ENTRY_ID: facts}
-        )
+        mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: facts})
         memory_store.set_hass(hass)
 
         result = await memory_store.async_get_facts()
@@ -227,7 +228,11 @@ class TestMemoryStoreFacts:
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
-                    {"id": "abc123", "fact": "User likes coffee", "category": "preference"},
+                    {
+                        "id": "abc123",
+                        "fact": "User likes coffee",
+                        "category": "preference",
+                    },
                 ]
             }
         )
@@ -265,9 +270,7 @@ class TestMemoryStoreFacts:
     async def test_remove_fact_not_found(self, memory_store, hass, mock_store):
         """Test removing a fact that doesn't exist."""
         mock_cls, mock_instance = mock_store
-        mock_instance.async_load = AsyncMock(
-            return_value={TEST_ENTRY_ID: []}
-        )
+        mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
         memory_store.set_hass(hass)
 
         result = await memory_store.async_remove_fact("nonexistent")
@@ -325,12 +328,14 @@ class TestMemoryStoreExpiry:
         memory_store._expiry_days = 1  # 1 day expiry
 
         recent_fact = {
-            "id": "1", "fact": "Recent",
+            "id": "1",
+            "fact": "Recent",
             "created_at": now - 3600,  # 1 hour ago
             "last_accessed": now - 3600,
         }
         expired_fact = {
-            "id": "2", "fact": "Expired",
+            "id": "2",
+            "fact": "Expired",
             "created_at": now - 86400 * 10,  # 10 days ago
             "last_accessed": now - 86400 * 10,
         }
@@ -355,7 +360,12 @@ class TestMemoryStoreExpiry:
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
-                    {"id": "1", "fact": "Old fact", "created_at": 0.0, "last_accessed": 0.0},
+                    {
+                        "id": "1",
+                        "fact": "Old fact",
+                        "created_at": 0.0,
+                        "last_accessed": 0.0,
+                    },
                 ]
             }
         )
@@ -427,7 +437,9 @@ class TestMemoryStoreEdgeCases:
         assert memory["last_accessed"] == memory["created_at"]
 
     @pytest.mark.asyncio
-    async def test_get_facts_updates_last_accessed(self, memory_store, hass, mock_store):
+    async def test_get_facts_updates_last_accessed(
+        self, memory_store, hass, mock_store
+    ):
         """Test get_facts updates last_accessed timestamps."""
         import time
 
@@ -436,7 +448,12 @@ class TestMemoryStoreEdgeCases:
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
-                    {"id": "1", "fact": "Fact", "created_at": now, "last_accessed": now},
+                    {
+                        "id": "1",
+                        "fact": "Fact",
+                        "created_at": now,
+                        "last_accessed": now,
+                    },
                 ]
             }
         )

@@ -23,14 +23,6 @@ from custom_components.minimax.config_flow import (
     async_minimax_option_schema,
 )
 from custom_components.minimax.const import (
-    DEFAULT_CONVERSATION_EXPIRY_MINUTES,
-    DEFAULT_CONVERSATION_MAX_TOKENS,
-    DEFAULT_CONVERSATION_TTS_ENABLED,
-    DEFAULT_MEMORY_ENABLED,
-    DEFAULT_PITCH,
-    DEFAULT_SPEED,
-    DEFAULT_VOL,
-    RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
@@ -61,8 +53,12 @@ class TestMiniMaxConfigFlow:
     async def test_user_flow_success(self, flow, hass):
         """Test successful user config flow creates entry."""
         with (
-            patch("custom_components.minimax.config_flow.MiniMaxApiClient") as mock_client,
-            patch("custom_components.minimax.config_flow.async_get_clientsession") as mock_session,
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
         ):
             instance = AsyncMock()
             instance.async_verify_connection = AsyncMock(return_value=True)
@@ -83,8 +79,12 @@ class TestMiniMaxConfigFlow:
         from custom_components.minimax.api import MiniMaxApiClientError
 
         with (
-            patch("custom_components.minimax.config_flow.MiniMaxApiClient") as mock_client,
-            patch("custom_components.minimax.config_flow.async_get_clientsession") as mock_session,
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
         ):
             instance = AsyncMock()
             instance.async_verify_connection = AsyncMock(
@@ -105,8 +105,12 @@ class TestMiniMaxConfigFlow:
         from custom_components.minimax.api import MiniMaxApiClientError
 
         with (
-            patch("custom_components.minimax.config_flow.MiniMaxApiClient") as mock_client,
-            patch("custom_components.minimax.config_flow.async_get_clientsession") as mock_session,
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
         ):
             instance = AsyncMock()
             instance.async_verify_connection = AsyncMock(
@@ -115,9 +119,7 @@ class TestMiniMaxConfigFlow:
             mock_client.return_value = instance
             mock_session.return_value = MagicMock()
 
-            result = await flow.async_step_user(
-                user_input={CONF_API_KEY: "test_key"}
-            )
+            result = await flow.async_step_user(user_input={CONF_API_KEY: "test_key"})
 
         assert result["type"] == FlowResultType.FORM
         assert result["errors"] == {"base": "cannot_connect"}
@@ -130,9 +132,7 @@ class TestMiniMaxConfigFlow:
         create_mock_minimax_config_entry(hass)
 
         with pytest.raises(AbortFlow) as exc_info:
-            await flow.async_step_user(
-                user_input={CONF_API_KEY: TEST_API_KEY}
-            )
+            await flow.async_step_user(user_input={CONF_API_KEY: TEST_API_KEY})
 
         assert exc_info.value.reason == "already_configured"
 

@@ -6,8 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-
 # Mock haffmpeg (HA optional dependency not available on Windows)
 # Must be done before any import that triggers homeassistant.components.ffmpeg
 for _mod_name in ["haffmpeg", "haffmpeg.core", "haffmpeg.tools"]:
@@ -37,8 +35,14 @@ def skip_notifications_fixture():
 def auto_patch_clientsession():
     """Auto-patch async_get_clientsession to avoid deep HA internals."""
     with (
-        patch("custom_components.minimax.async_get_clientsession", return_value=MagicMock()),
-        patch("custom_components.minimax.config_flow.async_get_clientsession", return_value=MagicMock()),
+        patch(
+            "custom_components.minimax.async_get_clientsession",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "custom_components.minimax.config_flow.async_get_clientsession",
+            return_value=MagicMock(),
+        ),
     ):
         yield
 
@@ -55,9 +59,7 @@ def hass():
     hass.states.async_all = MagicMock(return_value=[])
     hass.services = MagicMock()
     hass.services.async_services = MagicMock(return_value={})
-    hass.services.async_call = AsyncMock(
-        return_value={"success": True, "result": "ok"}
-    )
+    hass.services.async_call = AsyncMock(return_value={"success": True, "result": "ok"})
     hass.bus = MagicMock()
     hass.bus.async_fire = MagicMock()
 
@@ -71,10 +73,7 @@ def hass():
     config_entries.async_unload_platforms = AsyncMock(return_value=True)
 
     def _async_entries(domain, include_ignore=True):
-        return [
-            e for e in config_entries._entries.values()
-            if e.domain == domain
-        ]
+        return [e for e in config_entries._entries.values() if e.domain == domain]
 
     config_entries.async_entries = _async_entries
     hass.config_entries = config_entries

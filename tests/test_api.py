@@ -49,12 +49,16 @@ class TestMiniMaxApiClientInit:
 
     def test_init_creates_anthropic_client(self, mock_session):
         """Test client creates an Anthropic client."""
-        with patch("custom_components.minimax.api.anthropic.AsyncAnthropic") as mock_anth:
+        with patch(
+            "custom_components.minimax.api.anthropic.AsyncAnthropic"
+        ) as mock_anth:
             client = MiniMaxApiClient(api_key=TEST_API_KEY, session=mock_session)
             mock_anth.assert_called_once()
             call_kwargs = mock_anth.call_args[1]
             assert call_kwargs["api_key"] == TEST_API_KEY
-            assert MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0] in str(call_kwargs["base_url"])
+            assert MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0] in str(
+                call_kwargs["base_url"]
+            )
 
     def test_init_stores_session(self, api_client, mock_session):
         """Test client stores the aiohttp session."""
@@ -119,12 +123,12 @@ class TestAsyncChat:
     async def test_with_tools(self, api_client, mock_anthropic):
         """Test chat request passes tools to API."""
         mock_anthropic.messages.create = AsyncMock(
-            return_value=_make_chat_response(
-                [_make_text_block("Let me check.")]
-            )
+            return_value=_make_chat_response([_make_text_block("Let me check.")])
         )
 
-        tools = [{"name": "get_weather", "description": "Get weather", "input_schema": {}}]
+        tools = [
+            {"name": "get_weather", "description": "Get weather", "input_schema": {}}
+        ]
         await api_client.async_chat(
             model="MiniMax-M2.7",
             messages=[],
@@ -141,13 +145,17 @@ class TestAsyncChat:
             return_value=_make_chat_response(
                 [
                     _make_text_block("Turning on light."),
-                    _make_tool_use_block("toolu_1", "light.turn_on", {"entity_id": "light.living_room"}),
+                    _make_tool_use_block(
+                        "toolu_1", "light.turn_on", {"entity_id": "light.living_room"}
+                    ),
                 ],
                 stop_reason="tool_use",
             )
         )
 
-        result = await api_client.async_chat(model="MiniMax-M2.7", messages=[], system_prompt="")
+        result = await api_client.async_chat(
+            model="MiniMax-M2.7", messages=[], system_prompt=""
+        )
 
         assert result["success"] is True
         assert result["text"] == "Turning on light."
@@ -163,7 +171,9 @@ class TestAsyncChat:
             )
         )
 
-        result = await api_client.async_chat(model="MiniMax-M2.7", messages=[], system_prompt="")
+        result = await api_client.async_chat(
+            model="MiniMax-M2.7", messages=[], system_prompt=""
+        )
 
         assert result["success"] is True
         assert result["text"] == "Final answer"
@@ -174,18 +184,20 @@ class TestAsyncChat:
             side_effect=Exception("API rate limit exceeded")
         )
 
-        result = await api_client.async_chat(model="MiniMax-M2.7", messages=[], system_prompt="")
+        result = await api_client.async_chat(
+            model="MiniMax-M2.7", messages=[], system_prompt=""
+        )
 
         assert result["success"] is False
         assert "error" in result
 
     async def test_empty_content(self, api_client, mock_anthropic):
         """Test empty content returns empty text."""
-        mock_anthropic.messages.create = AsyncMock(
-            return_value=_make_chat_response([])
-        )
+        mock_anthropic.messages.create = AsyncMock(return_value=_make_chat_response([]))
 
-        result = await api_client.async_chat(model="MiniMax-M2.7", messages=[], system_prompt="")
+        result = await api_client.async_chat(
+            model="MiniMax-M2.7", messages=[], system_prompt=""
+        )
 
         assert result["success"] is True
         assert result["text"] == ""
@@ -198,29 +210,38 @@ class TestAsyncTTS:
         """Test successful TTS request."""
         mock_response = AsyncMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json = AsyncMock(return_value={
-            "data": {"audio": TTS_AUDIO_HEX},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {"audio": TTS_AUDIO_HEX},
+            }
+        )
         mock_session.post.return_value = mock_response
 
         result = await api_client.async_tts(
             text="Hello world",
             voice_id="English_PlayfulGirl",
-            speed=1.0, vol=1.0, pitch=0,
+            speed=1.0,
+            vol=1.0,
+            pitch=0,
             model="speech-2.8-hd",
         )
 
         assert result == bytes.fromhex(TTS_AUDIO_HEX)
         mock_session.post.assert_called_once_with(
             MINIMAX_TTS_API,
-            headers={"Authorization": f"Bearer {TEST_API_KEY}", "Content-Type": "application/json"},
+            headers={
+                "Authorization": f"Bearer {TEST_API_KEY}",
+                "Content-Type": "application/json",
+            },
             json={
                 "model": "speech-2.8-hd",
                 "text": "Hello world",
                 "stream": False,
                 "voice_setting": {
                     "voice_id": "English_PlayfulGirl",
-                    "speed": 1.0, "vol": 1.0, "pitch": 0,
+                    "speed": 1.0,
+                    "vol": 1.0,
+                    "pitch": 0,
                 },
             },
         )
@@ -228,15 +249,17 @@ class TestAsyncTTS:
     async def test_http_error(self, api_client, mock_session):
         """Test TTS request with HTTP error."""
         mock_response = AsyncMock()
-        mock_response.raise_for_status = MagicMock(
-            side_effect=Exception("HTTP 500")
-        )
+        mock_response.raise_for_status = MagicMock(side_effect=Exception("HTTP 500"))
         mock_session.post.return_value = mock_response
 
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_tts(
-                text="Hello", voice_id="English_PlayfulGirl",
-                speed=1.0, vol=1.0, pitch=0, model="speech-2.8-hd",
+                text="Hello",
+                voice_id="English_PlayfulGirl",
+                speed=1.0,
+                vol=1.0,
+                pitch=0,
+                model="speech-2.8-hd",
             )
 
     async def test_empty_audio_data(self, api_client, mock_session):
@@ -248,8 +271,12 @@ class TestAsyncTTS:
 
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_tts(
-                text="Hello", voice_id="English_PlayfulGirl",
-                speed=1.0, vol=1.0, pitch=0, model="speech-2.8-hd",
+                text="Hello",
+                voice_id="English_PlayfulGirl",
+                speed=1.0,
+                vol=1.0,
+                pitch=0,
+                model="speech-2.8-hd",
             )
 
 
@@ -260,9 +287,13 @@ class TestAsyncSTT:
         """Test successful STT request."""
         mock_response = AsyncMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json = AsyncMock(return_value={
-            "text": "Transcribed text.", "code": 0, "msg": "success",
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "text": "Transcribed text.",
+                "code": 0,
+                "msg": "success",
+            }
+        )
         mock_session.post.return_value = mock_response
 
         result = await api_client.async_stt(
@@ -287,8 +318,11 @@ class TestAsyncSTT:
 
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_stt(
-                audio_data=b"test", model="MiniMax-M2.7",
-                language="en-US", prompt="", audio_format="wav",
+                audio_data=b"test",
+                model="MiniMax-M2.7",
+                language="en-US",
+                prompt="",
+                audio_format="wav",
             )
 
     async def test_empty_text_response(self, api_client, mock_session):
@@ -300,8 +334,11 @@ class TestAsyncSTT:
 
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_stt(
-                audio_data=b"test", model="MiniMax-M2.7",
-                language="en-US", prompt="", audio_format="wav",
+                audio_data=b"test",
+                model="MiniMax-M2.7",
+                language="en-US",
+                prompt="",
+                audio_format="wav",
             )
 
 
@@ -312,27 +349,41 @@ class TestAsyncImageGeneration:
         """Test image generation with base64 response."""
         mock_response = AsyncMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json = AsyncMock(return_value={
-            "data": {"image_base64": ["ZmFrZV9pbWFnZQ=="]},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {"image_base64": ["ZmFrZV9pbWFnZQ=="]},
+            }
+        )
         mock_session.post.return_value = mock_response
 
-        result = await api_client.async_image_generation(prompt="A cat", model="image-01")
+        result = await api_client.async_image_generation(
+            prompt="A cat", model="image-01"
+        )
 
         assert result == b"fake_image"
         mock_session.post.assert_called_once_with(
             MINIMAX_IMAGE_API,
-            headers={"Authorization": f"Bearer {TEST_API_KEY}", "Content-Type": "application/json"},
-            json={"model": "image-01", "prompt": "A cat", "aspect_ratio": "1:1", "response_format": "base64"},
+            headers={
+                "Authorization": f"Bearer {TEST_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": "image-01",
+                "prompt": "A cat",
+                "aspect_ratio": "1:1",
+                "response_format": "base64",
+            },
         )
 
     async def test_success_url(self, api_client, mock_session):
         """Test image generation with URL response."""
         mock_response = AsyncMock()
         mock_response.raise_for_status = MagicMock()
-        mock_response.json = AsyncMock(return_value={
-            "data": {"image_urls": ["http://example.com/img.jpg"]},
-        })
+        mock_response.json = AsyncMock(
+            return_value={
+                "data": {"image_urls": ["http://example.com/img.jpg"]},
+            }
+        )
         mock_session.post.return_value = mock_response
 
         with patch("custom_components.minimax.api.httpx.AsyncClient") as mock_httpx:
@@ -346,7 +397,9 @@ class TestAsyncImageGeneration:
             mock_client.get.return_value = mock_resp
 
             result = await api_client.async_image_generation(
-                prompt="A cat", model="image-01", response_format="url",
+                prompt="A cat",
+                model="image-01",
+                response_format="url",
             )
 
         assert result == b"image_from_url"

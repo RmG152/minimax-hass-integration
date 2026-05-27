@@ -1,6 +1,6 @@
 """Tests for MiniMax TTS entity."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -142,7 +142,9 @@ class TestMiniMaxTTSEntity:
         mock_client.async_tts = AsyncMock(side_effect=Exception("API Error"))
 
         result = await entity.async_get_tts_audio(
-            message="Hello", language="en-US", options={ATTR_VOICE: "English_PlayfulGirl"},
+            message="Hello",
+            language="en-US",
+            options={ATTR_VOICE: "English_PlayfulGirl"},
         )
 
         assert result[0] is None
@@ -152,7 +154,9 @@ class TestMiniMaxTTSEntity:
     async def test_async_get_tts_audio_subentry_defaults(self, entity, mock_client):
         """Test async_get_tts_audio uses subentry default options."""
         await entity.async_get_tts_audio(
-            message="Hello", language="en-US", options={},
+            message="Hello",
+            language="en-US",
+            options={},
         )
 
         mock_client.async_tts.assert_called_once()

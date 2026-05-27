@@ -9,3 +9,6 @@ pylint-pytest
 pylint
 pytest-aiohttp
 pytest-asyncio
+# HA component dependencies that are not pulled transitively
+hassil
+mutagen

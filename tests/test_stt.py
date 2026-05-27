@@ -1,6 +1,6 @@
 """Tests for MiniMax STT entity."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -98,8 +98,10 @@ class TestMiniMaxSTTEntity:
         from tests import STT_RESPONSE_TEXT
 
         metadata = stt.SpeechMetadata(
-            language="en-US", format=stt.AudioFormats.WAV,
-            codec=stt.AudioCodecs.PCM, bit_rate=stt.AudioBitRates.BITRATE_16,
+            language="en-US",
+            format=stt.AudioFormats.WAV,
+            codec=stt.AudioCodecs.PCM,
+            bit_rate=stt.AudioBitRates.BITRATE_16,
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         )
@@ -116,8 +118,10 @@ class TestMiniMaxSTTEntity:
         mock_client.async_stt = AsyncMock(return_value="")
 
         metadata = stt.SpeechMetadata(
-            language="en-US", format=stt.AudioFormats.WAV,
-            codec=stt.AudioCodecs.PCM, bit_rate=stt.AudioBitRates.BITRATE_16,
+            language="en-US",
+            format=stt.AudioFormats.WAV,
+            codec=stt.AudioCodecs.PCM,
+            bit_rate=stt.AudioBitRates.BITRATE_16,
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         )
@@ -133,8 +137,10 @@ class TestMiniMaxSTTEntity:
         mock_client.async_stt = AsyncMock(side_effect=Exception("API Error"))
 
         metadata = stt.SpeechMetadata(
-            language="en-US", format=stt.AudioFormats.WAV,
-            codec=stt.AudioCodecs.PCM, bit_rate=stt.AudioBitRates.BITRATE_16,
+            language="en-US",
+            format=stt.AudioFormats.WAV,
+            codec=stt.AudioCodecs.PCM,
+            bit_rate=stt.AudioBitRates.BITRATE_16,
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         )
@@ -148,8 +154,10 @@ class TestMiniMaxSTTEntity:
     async def test_async_process_audio_stream_passes_params(self, entity, mock_client):
         """Test async_process_audio_stream passes correct params to client."""
         metadata = stt.SpeechMetadata(
-            language="en-US", format=stt.AudioFormats.WAV,
-            codec=stt.AudioCodecs.PCM, bit_rate=stt.AudioBitRates.BITRATE_16,
+            language="en-US",
+            format=stt.AudioFormats.WAV,
+            codec=stt.AudioCodecs.PCM,
+            bit_rate=stt.AudioBitRates.BITRATE_16,
             sample_rate=stt.AudioSampleRates.SAMPLERATE_16000,
             channel=stt.AudioChannels.CHANNEL_MONO,
         )
