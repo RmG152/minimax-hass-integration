@@ -2,7 +2,9 @@
 aioresponses
 black
 flake8
+hassil
 mypy
+mutagen
 pre-commit
 pytest
 pytest-homeassistant-custom-component
