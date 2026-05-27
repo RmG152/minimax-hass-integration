@@ -43,3 +43,5 @@ Thumbs.db
 
 # Local development
 *.log
+/tests/__pycache__
+/.kilo

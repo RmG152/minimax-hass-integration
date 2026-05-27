@@ -1,9 +1,7 @@
 """Speech to text support for MiniMax."""
 
-from __future__ import annotations
-
-import logging
 from collections.abc import AsyncIterable
+import logging
 
 from homeassistant.components import stt
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
@@ -11,11 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import MiniMaxApiClient
-from .const import (
-    CONF_CHAT_MODEL,
-    CONF_PROMPT,
-    RECOMMENDED_CHAT_MODEL,
-)
+from .const import CONF_CHAT_MODEL, CONF_PROMPT, RECOMMENDED_CHAT_MODEL
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -117,6 +111,6 @@ class MiniMaxSTTEntity(stt.SpeechToTextEntity):
             _LOGGER.warning("STT returned empty text")
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
 
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Error during STT: %s", err)
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)

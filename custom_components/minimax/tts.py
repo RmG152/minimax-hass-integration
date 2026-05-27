@@ -1,7 +1,5 @@
 """Text to speech support for MiniMax."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any
 
@@ -121,9 +119,9 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
                 pitch=int(pitch),
                 model=RECOMMENDED_TTS_MODEL,
             )
-            _LOGGER.debug("TTS generated %d bytes of audio", len(audio_data))
-            return ("mp3", audio_data)
-
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             _LOGGER.error("Error during TTS: %s", err)
             return (None, None)
+        else:
+            _LOGGER.debug("TTS generated %d bytes of audio", len(audio_data))
+            return ("mp3", audio_data)

@@ -9,4 +9,7 @@ pylint-pytest
 pylint
 pytest-aiohttp
 pytest-asyncio
-respx
+# HA component dependencies that are not pulled transitively
+hassil
+home-assistant-intents
+mutagen

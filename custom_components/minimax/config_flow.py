@@ -1,12 +1,9 @@
 """Config flow for MiniMax integration."""
 
-from __future__ import annotations
-
 import logging
 from typing import Any
-import voluptuous as vol
 
-_LOGGER = logging.getLogger(__name__)
+import voluptuous as vol
 
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
@@ -31,6 +28,7 @@ from homeassistant.helpers.selector import (
 
 from .api import MiniMaxApiClient, MiniMaxApiClientError
 from .const import (
+    CHAT_MODELS,
     CONF_API_KEY,
     CONF_CHAT_MODEL,
     CONF_CONVERSATION_EXPIRY_MINUTES,
@@ -45,6 +43,7 @@ from .const import (
     CONF_SPEED,
     CONF_VOICE_ID,
     CONF_VOL,
+    DEFAULT_AI_TASK_NAME,
     DEFAULT_CONVERSATION_EXPIRY_MINUTES,
     DEFAULT_CONVERSATION_MAX_TOKENS,
     DEFAULT_CONVERSATION_NAME,
@@ -57,7 +56,7 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_VOL,
     DOMAIN,
-    CHAT_MODELS,
+    RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
@@ -65,6 +64,7 @@ from .const import (
     VOICE_IDS,
 )
 
+_LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -74,11 +74,11 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
 
 
 class InvalidAuthError(Exception):
-    pass
+    """Invalid API key or authentication error."""
 
 
 class CannotConnectError(Exception):
-    pass
+    """Cannot connect to MiniMax API."""
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
@@ -125,9 +125,6 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
                 else:
                     _LOGGER.warning("Cannot connect during config flow: %s", e)
                     errors["base"] = "cannot_connect"
-            except Exception as e:
-                _LOGGER.error("Unknown error during config flow: %s", e)
-                errors["base"] = "unknown"
             else:
                 _LOGGER.info("Config flow validation successful, creating entry")
                 if self.source == SOURCE_REAUTH:
@@ -158,6 +155,12 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
                             "title": "MiniMax STT",
                             "unique_id": None,
                         },
+                        {
+                            "subentry_type": "ai_task_data",
+                            "data": RECOMMENDED_AI_TASK_OPTIONS,
+                            "title": DEFAULT_AI_TASK_NAME,
+                            "unique_id": None,
+                        },
                     ],
                 )
         _LOGGER.debug("Showing user form")
@@ -181,6 +184,7 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
             "conversation": LLMSubentryFlowHandler,
             "tts": LLMSubentryFlowHandler,
             "stt": LLMSubentryFlowHandler,
+            "ai_task_data": LLMSubentryFlowHandler,
         }
 
 
@@ -212,6 +216,8 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                     options = RECOMMENDED_TTS_OPTIONS.copy()
                 elif self._subentry_type == "stt":
                     options = RECOMMENDED_STT_OPTIONS.copy()
+                elif self._subentry_type == "ai_task_data":
+                    options = RECOMMENDED_AI_TASK_OPTIONS.copy()
                 else:
                     options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
                 _LOGGER.debug("New subentry, using recommended options: %s", options)
@@ -245,8 +251,8 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             return self.async_show_form(
                 step_id="set_options", data_schema=vol.Schema(schema), errors=errors
             )
-        except Exception as ex:
-            _LOGGER.exception("Error building schema: %s", ex)
+        except Exception:
+            _LOGGER.exception("Error building schema")
             return self.async_abort(reason="unknown")
 
     async_step_reconfigure = async_step_set_options
@@ -268,6 +274,8 @@ def async_minimax_option_schema(
                 default_name = "MiniMax TTS"
             elif subentry_type == "stt":
                 default_name = "MiniMax STT"
+            elif subentry_type == "ai_task_data":
+                default_name = DEFAULT_AI_TASK_NAME
             else:
                 default_name = DEFAULT_CONVERSATION_NAME
         schema[vol.Required("name", default=default_name)] = str
@@ -383,6 +391,28 @@ def async_minimax_option_schema(
                 ): TemplateSelector(),
             }
         )
+    # elif subentry_type == "ai_task_data":
+    #     default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+    #     schema.update(
+    #         {
+    #             vol.Optional(
+    #                 CONF_CHAT_MODEL,
+    #                 description={"suggested_value": default_model},
+    #             ): SelectSelector(
+    #                 SelectSelectorConfig(
+    #                     mode=SelectSelectorMode.DROPDOWN,
+    #                     options=[
+    #                         SelectOptionDict(label=m["label"], value=m["value"])
+    #                         for m in CHAT_MODELS
+    #                     ],
+    #                 )
+    #             ),
+    #             vol.Optional(
+    #                 CONF_PROMPT,
+    #                 description={"suggested_value": options.get(CONF_PROMPT, "")},
+    #             ): TemplateSelector(),
+    #         }
+    #     )
 
     schema[
         vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
