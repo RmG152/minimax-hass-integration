@@ -119,6 +119,9 @@ class TestAsyncChat:
         assert result["text"] == "Hello! How can I help you?"
         assert result["tool_calls"] == []
         assert result["stop_reason"] == "end_turn"
+        assert result["content"] == [
+            {"type": "text", "text": "Hello! How can I help you?"}
+        ]
 
     async def test_with_tools(self, api_client, mock_anthropic):
         """Test chat request passes tools to API."""
@@ -162,6 +165,14 @@ class TestAsyncChat:
         assert len(result["tool_calls"]) == 1
         assert result["tool_calls"][0]["id"] == "toolu_1"
         assert result["tool_calls"][0]["name"] == "light.turn_on"
+        assert len(result["content"]) == 2
+        assert result["content"][0] == {"type": "text", "text": "Turning on light."}
+        assert result["content"][1] == {
+            "type": "tool_use",
+            "id": "toolu_1",
+            "name": "light.turn_on",
+            "input": {"entity_id": "light.living_room"},
+        }
 
     async def test_with_thinking_blocks_ignored(self, api_client, mock_anthropic):
         """Test thinking blocks are ignored in response."""
@@ -177,6 +188,7 @@ class TestAsyncChat:
 
         assert result["success"] is True
         assert result["text"] == "Final answer"
+        assert result["content"] == [{"type": "text", "text": "Final answer"}]
 
     async def test_api_error_returns_error_dict(self, api_client, mock_anthropic):
         """Test API error returns error dict instead of raising."""
@@ -201,6 +213,7 @@ class TestAsyncChat:
 
         assert result["success"] is True
         assert result["text"] == ""
+        assert result["content"] == []
 
 
 class TestAsyncTTS:
@@ -381,7 +394,7 @@ class TestAsyncImageGeneration:
         mock_response.raise_for_status = MagicMock()
         mock_response.json = AsyncMock(
             return_value={
-                "data": {"image_urls": ["http://example.com/img.jpg"]},
+                "data": {"image_urls": ["https://api.minimax.io/img.jpg"]},
             }
         )
         mock_session.post.return_value = mock_response

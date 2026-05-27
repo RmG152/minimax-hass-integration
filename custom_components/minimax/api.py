@@ -4,6 +4,7 @@ import asyncio
 import base64
 import logging
 from typing import Any
+from urllib.parse import urlparse
 
 from aiohttp import ClientSession
 import anthropic
@@ -20,7 +21,9 @@ TIMEOUT = 60
 TTS_TIMEOUT = 60
 STT_TIMEOUT = 60
 IMAGE_TIMEOUT = 120
+IMAGE_FETCH_TIMEOUT = 30
 AI_TASK_TIMEOUT = 120
+MINIMAX_DOMAINS = ["api.minimax.io", "cdn.minimax.io", "minimax.io"]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,13 +78,23 @@ class MiniMaxApiClient:
             content_blocks = response.content
             text_parts = []
             tool_calls = []
+            content = []
 
             for block in content_blocks:
                 if block.type == "text":
                     text_parts.append(block.text)
+                    content.append({"type": "text", "text": block.text})
                 elif block.type == "tool_use":
                     tool_calls.append(
                         {
+                            "id": block.id,
+                            "name": block.name,
+                            "input": block.input,
+                        }
+                    )
+                    content.append(
+                        {
+                            "type": "tool_use",
                             "id": block.id,
                             "name": block.name,
                             "input": block.input,
@@ -92,6 +105,7 @@ class MiniMaxApiClient:
 
             return {
                 "success": True,
+                "content": content,
                 "text": "\n".join(text_parts) if text_parts else "",
                 "tool_calls": tool_calls,
                 "stop_reason": response.stop_reason,
@@ -218,8 +232,20 @@ class MiniMaxApiClient:
                 else:
                     image_urls = result.get("data", {}).get("image_urls", [])
                     if image_urls:
-                        async with httpx.AsyncClient() as client:
-                            img_resp = await client.get(image_urls[0])
+                        url = image_urls[0]
+                        parsed = urlparse(url)
+                        if (
+                            parsed.scheme != "https"
+                            or parsed.netloc not in MINIMAX_DOMAINS
+                        ):
+                            _LOGGER.error("Untrusted image URL: %s", url)
+                            raise MiniMaxApiClientError(  # noqa: TRY301
+                                "Untrusted image URL"
+                            )
+                        async with httpx.AsyncClient(
+                            timeout=httpx.Timeout(IMAGE_FETCH_TIMEOUT)
+                        ) as client:
+                            img_resp = await client.get(url)
                             img_resp.raise_for_status()
                             return img_resp.content
 
