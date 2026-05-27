@@ -111,7 +111,9 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
             )
 
             if not result.get("success", False):
-                msg = f"{ERROR_GETTING_RESPONSE}: {result.get('error', 'Unknown error')}"
+                msg = (
+                    f"{ERROR_GETTING_RESPONSE}: {result.get('error', 'Unknown error')}"
+                )
                 raise HomeAssistantError(msg)  # noqa: TRY301
 
             text = result.get("text", "")

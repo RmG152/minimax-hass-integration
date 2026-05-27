@@ -472,7 +472,10 @@ class MiniMaxConversationEntity(
             if not memories:
                 return ""
 
-            memory_lines = ["\n\n## Known User Facts:", *(f"- {m['fact']}" for m in memories)]
+            memory_lines = [
+                "\n\n## Known User Facts:",
+                *(f"- {m['fact']}" for m in memories),
+            ]
 
         except Exception as err:  # noqa: BLE001
             LOGGER.warning("Could not get memories for system prompt: %s", err)
@@ -507,7 +510,11 @@ class MiniMaxConversationEntity(
             tool_calls = []
             text_parts = []
 
-            text_parts = [block.get("text", "") for block in content_blocks if block.get("type") == "text"]
+            text_parts = [
+                block.get("text", "")
+                for block in content_blocks
+                if block.get("type") == "text"
+            ]
 
             tool_calls = [
                 {
@@ -529,7 +536,10 @@ class MiniMaxConversationEntity(
                     }
                 )
 
-                messages.extend({"role": "user", "content": [result_item]} for result_item in tool_results)
+                messages.extend(
+                    {"role": "user", "content": [result_item]}
+                    for result_item in tool_results
+                )
 
                 try:
                     return await self._chat_with_api(

@@ -218,12 +218,12 @@ class TestAsyncTTS:
         ):
             await api_client.async_tts(
                 text="Hello world",
-                    voice_id="English_PlayfulGirl",
-                    speed=1.0,
-                    vol=1.0,
-                    pitch=1.0,
-                    model="speech-2.8-hd",
-                )
+                voice_id="English_PlayfulGirl",
+                speed=1.0,
+                vol=1.0,
+                pitch=1.0,
+                model="speech-2.8-hd",
+            )
 
 
 class TestAsyncSTT:
