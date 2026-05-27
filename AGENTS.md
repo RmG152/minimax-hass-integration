@@ -93,7 +93,6 @@ ssh root@10.0.100.61 'tail /homeassistant/homeassistant.log | grep -i minimax'
 
 ### Type Annotations
 
-- Use `from __future__ import annotations` for forward references
 - Use type aliases for complex types:
   ```python
   type MiniMaxConfigEntry = ConfigEntry[dict[str, Any]]
@@ -109,8 +108,6 @@ Order imports as:
 4. Local relative imports (`.const`, `.config_flow`)
 
 ```python
-from __future__ import annotations
-
 import logging
 from typing import Any
 
