@@ -112,7 +112,7 @@ addopts = "--timeout=10 --cov-report=xml:coverage.xml --cov-report=term-missing 
 
 [tool.mypy]
 ignore_missing_imports = true
-python_version = "3.13"
+python_version = "3.14"
 follow_imports = "silent"
 strict_equality = true
 warn_incomplete_stub = true
