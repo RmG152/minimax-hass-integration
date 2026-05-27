@@ -1,0 +1,143 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Ya está configurado. Solo se permite una única configuración.",
+      "reauth_successful": "Reautenticación correcta."
+    },
+    "error": {
+      "cannot_connect": "No se puede conectar a la API de MiniMax.",
+      "invalid_auth": "Clave API no válida.",
+      "unknown": "Se produjo un error desconocido."
+    },
+    "step": {
+      "user": {
+        "title": "MiniMax",
+        "description": "Configura la integración de MiniMax proporcionando tu clave API.",
+        "data": {
+          "api_key": "Clave API"
+        },
+        "data_description": {
+          "api_key": "Tu clave API de MiniMax de la plataforma MiniMax."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "abort": {
+        "entry_not_loaded": "No se pueden añadir elementos mientras la configuración está deshabilitada.",
+        "reconfigure_successful": "Reconfiguración correcta."
+      },
+      "error": {
+        "error": "Error al comunicarse con la API de MiniMax"
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar agente de conversación",
+        "user": "Añadir agente de conversación"
+      },
+      "step": {
+        "set_options": {
+          "title": "Agente de Conversación",
+          "description": "Configura cómo el agente de conversación responde a los comandos de voz.",
+          "data": {
+            "name": "Nombre",
+            "chat_model": "Modelo",
+            "prompt": "Indicaciones",
+            "conversation_tts_enabled": "TTS de conversación habilitado",
+            "conversation_max_tokens": "Máximo de tokens del historial",
+            "conversation_expiry_minutes": "El historial expira después de",
+            "memory_enabled": "Habilitar memoria",
+            "memory_max_count": "Máximo de recuerdos",
+            "memory_expiry_days": "Días de expiración de recuerdos",
+            "recommended": "Usar ajustes recomendados"
+          },
+          "data_description": {
+            "chat_model": "Selecciona el modelo de IA para la conversación",
+            "prompt": "Indica cómo debe responder el asistente de IA a los comandos de voz.",
+            "conversation_tts_enabled": "Habilitar texto a voz para las respuestas de conversación",
+            "conversation_max_tokens": "Límite máximo de tokens para el historial de conversación (~4 caracteres por token)",
+            "conversation_expiry_minutes": "Cuánto tiempo mantener el historial de conversación antes de que expire",
+            "memory_enabled": "Habilitar memoria persistente para que el agente recuerde las preferencias del usuario entre conversaciones",
+            "memory_max_count": "Número máximo de recuerdos a almacenar (10-100)",
+            "memory_expiry_days": "Días antes de que expiren los recuerdos no utilizados (0=nunca)"
+          }
+        }
+      }
+    },
+    "stt": {
+      "abort": {
+        "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
+        "reconfigure_successful": "Reconfiguración correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar texto a voz",
+        "user": "Añadir texto a voz"
+      },
+      "step": {
+        "set_options": {
+          "title": "Texto a Voz",
+          "description": "Configura cómo se transcribe el audio.",
+          "data": {
+            "name": "Nombre",
+            "prompt": "Indicaciones",
+            "recommended": "Usar ajustes recomendados"
+          },
+          "data_description": {
+            "prompt": "Indica cómo transcribir el audio."
+          }
+        }
+      }
+    },
+    "tts": {
+      "abort": {
+        "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
+        "reconfigure_successful": "Reconfiguración correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar voz a texto",
+        "user": "Añadir voz a texto"
+      },
+      "step": {
+        "set_options": {
+          "title": "Voz a Texto",
+          "description": "Configura los ajustes de salida de voz.",
+          "data": {
+            "name": "Nombre",
+            "voice_id": "Voz",
+            "speed": "Velocidad",
+            "vol": "Volumen",
+            "pitch": "Tono",
+            "recommended": "Usar ajustes recomendados"
+          },
+          "data_description": {
+            "voice_id": "Selecciona la voz para la salida de texto a voz",
+            "speed": "Multiplicador de velocidad de habla (0.5 a 2.0)",
+            "vol": "Nivel de volumen (0.0 a 2.0)",
+            "pitch": "Ajuste del tono de voz (-10 a 10)"
+          }
+        }
+      }
+    },
+    "ai_task_data": {
+      "entry_type": "Tarea de IA",
+      "abort": {
+        "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
+        "reconfigure_successful": "Reconfiguración correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar Tarea de IA",
+        "user": "Añadir Tarea de IA"
+      },
+      "step": {
+        "set_options": {
+          "title": "Tarea de IA",
+          "description": "Configura los ajustes de tareas de IA para generación de texto e imágenes.",
+          "data": {
+            "name": "Nombre",
+            "recommended": "Usar ajustes recomendados"
+          }
+        }
+      }
+    }
+  }
+}

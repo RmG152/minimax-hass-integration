@@ -1,0 +1,143 @@
+{
+  "config": {
+    "abort": {
+      "already_configured": "Ja està configurat. Només es permet una única configuració.",
+      "reauth_successful": "Reautenticació correcta."
+    },
+    "error": {
+      "cannot_connect": "No es pot connectar a l'API de MiniMax.",
+      "invalid_auth": "Clau API no vàlida.",
+      "unknown": "S'ha produït un error desconegut."
+    },
+    "step": {
+      "user": {
+        "title": "MiniMax",
+        "description": "Configura la integració de MiniMax proporcionant la teva clau API.",
+        "data": {
+          "api_key": "Clau API"
+        },
+        "data_description": {
+          "api_key": "La teva clau API de MiniMax de la plataforma MiniMax."
+        }
+      }
+    }
+  },
+  "config_subentries": {
+    "conversation": {
+      "abort": {
+        "entry_not_loaded": "No es poden afegir elements mentre la configuració està deshabilitada.",
+        "reconfigure_successful": "Reconfiguració correcta."
+      },
+      "error": {
+        "error": "Error en comunicar-se amb l'API de MiniMax"
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar agent de conversa",
+        "user": "Afegir agent de conversa"
+      },
+      "step": {
+        "set_options": {
+          "title": "Agent de Conversa",
+          "description": "Configura com l'agent de conversa respon a les comandes de veu.",
+          "data": {
+            "name": "Nom",
+            "chat_model": "Model",
+            "prompt": "Instruccions",
+            "conversation_tts_enabled": "TTS de conversa habilitat",
+            "conversation_max_tokens": "Màxim de tokens de l'historial",
+            "conversation_expiry_minutes": "L'historial expira després de",
+            "memory_enabled": "Habilitar memòria",
+            "memory_max_count": "Màxim de records",
+            "memory_expiry_days": "Dies d'expiració dels records",
+            "recommended": "Utilitzar ajustos recomanats"
+          },
+          "data_description": {
+            "chat_model": "Selecciona el model d'IA per a la conversa",
+            "prompt": "Indica com ha de respondre l'assistent d'IA a les comandes de veu.",
+            "conversation_tts_enabled": "Habilitar text a veu per a les respostes de conversa",
+            "conversation_max_tokens": "Límit màxim de tokens per a l'historial de conversa (~4 caràcters per token)",
+            "conversation_expiry_minutes": "Quant de temps mantenir l'historial de conversa abans que expiri",
+            "memory_enabled": "Habilitar memòria persistent perquè l'agent recordi les preferències de l'usuari entre converses",
+            "memory_max_count": "Nombre màxim de records a emmagatzemar (10-100)",
+            "memory_expiry_days": "Dies abans que expiri els records no utilitzats (0=mai)"
+          }
+        }
+      }
+    },
+    "stt": {
+      "abort": {
+        "entry_not_loaded": "No es pot afegir mentre la configuració està deshabilitada.",
+        "reconfigure_successful": "Reconfiguració correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar text a veu",
+        "user": "Afegir text a veu"
+      },
+      "step": {
+        "set_options": {
+          "title": "Text a Veu",
+          "description": "Configura com es transcriu l'àudio.",
+          "data": {
+            "name": "Nom",
+            "prompt": "Instruccions",
+            "recommended": "Utilitzar ajustos recomanats"
+          },
+          "data_description": {
+            "prompt": "Indica com transcriure l'àudio."
+          }
+        }
+      }
+    },
+    "tts": {
+      "abort": {
+        "entry_not_loaded": "No es pot afegir mentre la configuració està deshabilitada.",
+        "reconfigure_successful": "Reconfiguració correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar veu a text",
+        "user": "Afegir veu a text"
+      },
+      "step": {
+        "set_options": {
+          "title": "Veu a Text",
+          "description": "Configura els ajustos de sortida de veu.",
+          "data": {
+            "name": "Nom",
+            "voice_id": "Veu",
+            "speed": "Velocitat",
+            "vol": "Volum",
+            "pitch": "To",
+            "recommended": "Utilitzar ajustos recomanats"
+          },
+          "data_description": {
+            "voice_id": "Selecciona la veu per a la sortida de text a veu",
+            "speed": "Multiplicador de velocitat de parla (0.5 a 2.0)",
+            "vol": "Nivell de volum (0.0 a 2.0)",
+            "pitch": "Ajust del to de veu (-10 a 10)"
+          }
+        }
+      }
+    },
+    "ai_task_data": {
+      "entry_type": "Tasca d'IA",
+      "abort": {
+        "entry_not_loaded": "No es pot afegir mentre la configuració està deshabilitada.",
+        "reconfigure_successful": "Reconfiguració correcta."
+      },
+      "initiate_flow": {
+        "reconfigure": "Reconfigurar Tasca d'IA",
+        "user": "Afegir Tasca d'IA"
+      },
+      "step": {
+        "set_options": {
+          "title": "Tasca d'IA",
+          "description": "Configura els ajustos de tasques d'IA per a generació de text i imatges.",
+          "data": {
+            "name": "Nom",
+            "recommended": "Utilitzar ajustos recomanats"
+          }
+        }
+      }
+    }
+  }
+}
