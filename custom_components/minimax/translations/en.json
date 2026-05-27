@@ -119,6 +119,7 @@
       }
     },
     "ai_task_data": {
+      "entry_type": "AI Task",
       "abort": {
         "entry_not_loaded": "Cannot add while the configuration is disabled.",
         "reconfigure_successful": "Reconfiguration successful."

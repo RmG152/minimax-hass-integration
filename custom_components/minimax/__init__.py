@@ -4,13 +4,16 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_API_KEY
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import MiniMaxApiClient
-from .const import LOGGER, PLATFORMS
+from .const import DOMAIN, LOGGER, PLATFORMS
 
 type MiniMaxConfigEntry = ConfigEntry[MiniMaxApiClient]
+
+CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
