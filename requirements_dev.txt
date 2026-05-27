@@ -2,7 +2,9 @@
 aioresponses
 black
 flake8
+haffmpeg
 hassil
+home_assistant_intents
 mypy
 mutagen
 pre-commit
