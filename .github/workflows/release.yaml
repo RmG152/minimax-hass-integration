@@ -25,6 +25,7 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           python -c "import json; path='custom_components/minimax/manifest.json'; m=json.load(open(path)); m['version']='${VERSION}'; open(path,'w').write(json.dumps(m,indent=2)+'\n')"
 
       - name: Commit updated manifest.json

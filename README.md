@@ -7,11 +7,12 @@
      align="right"
      style="float: right; margin: 10px 0px 20px 20px;" />
 
-[![GitHub Release](https://img.shields.io/github/release/RmG152/minimax-hass-integration.svg?style=flat-square)](https://github.com/RmG152/minimax-hass-integration/releases)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/RmG152/minimax-hass-integration/tests.yaml?branch=master&style=flat-square)](https://github.com/RmG152/minimax-hass-integration/actions/workflows/tests.yaml)
-[![Test Coverage](https://img.shields.io/codecov/c/gh/RmG152/minimax-hass-integration?style=flat-square)](https://app.codecov.io/gh/RmG152/minimax-hass-integration/)
+[![HACS Integration](https://img.shields.io/badge/HACS-Integration-blue.svg)](https://hacs.xyz)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
+[![CI](https://github.com/RmG152/minimax-hass-integration/actions/workflows/ci.yaml/badge.svg)](https://github.com/RmG152/minimax-hass-integration/actions/workflows/ci.yaml)
+[![Build](https://img.shields.io/github/actions/workflow/status/RmG152/minimax-hass-integration/ci.yaml?branch=main)](https://github.com/RmG152/minimax-hass-integration/actions)
+[![Release](https://img.shields.io/github/v/release/RmG152/minimax-hass-integration)](https://github.com/RmG152/minimax-hass-integration/releases)
 [![License](https://img.shields.io/github/license/RmG152/minimax-hass-integration.svg?style=flat-square)](LICENSE)
-[![hacs](https://img.shields.io/badge/HACS-custom-orange.svg?style=flat-square)](https://hacs.xyz)
 
 # MiniMax Home Assistant Integration
 
