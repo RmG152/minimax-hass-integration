@@ -24,6 +24,7 @@
   },
   "config_subentries": {
     "conversation": {
+      "entry_type": "Agente de Conversación",
       "abort": {
         "entry_not_loaded": "No se pueden añadir elementos mientras la configuración está deshabilitada.",
         "reconfigure_successful": "Reconfiguración correcta."
@@ -65,6 +66,7 @@
       }
     },
     "stt": {
+      "entry_type": "Texto a Voz",
       "abort": {
         "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
         "reconfigure_successful": "Reconfiguración correcta."
@@ -89,6 +91,7 @@
       }
     },
     "tts": {
+      "entry_type": "Voz a Texto",
       "abort": {
         "entry_not_loaded": "No se puede añadir mientras la configuración está deshabilitada.",
         "reconfigure_successful": "Reconfiguración correcta."
