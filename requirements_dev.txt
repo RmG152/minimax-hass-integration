@@ -11,4 +11,5 @@ pytest-aiohttp
 pytest-asyncio
 # HA component dependencies that are not pulled transitively
 hassil
+home-assistant-intents
 mutagen

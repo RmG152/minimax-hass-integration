@@ -51,12 +51,11 @@ class TestMiniMaxSTTEntity:
         """Create an STT entity for testing."""
         entry = _make_config_entry()
         subentry = _make_subentry()
-        entity = minimax_stt.MiniMaxSTTEntity(
+        return minimax_stt.MiniMaxSTTEntity(
             config_entry=entry,
             subentry=subentry,
             client=mock_client,
         )
-        return entity
 
     def test_entity_properties(self, entity):
         """Test entity properties are set correctly."""

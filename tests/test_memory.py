@@ -1,5 +1,6 @@
 """Tests for MiniMax MemoryStore."""
 
+import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -23,15 +24,13 @@ def mock_store():
 @pytest.fixture
 def hass():
     """Create a mock hass."""
-    hass = MagicMock()
-    return hass
+    return MagicMock()
 
 
 @pytest.fixture
 def memory_store(mock_store):
     """Create a MemoryStore without hass set."""
-    store = MemoryStore(entry_id=TEST_ENTRY_ID, max_count=10, expiry_days=30)
-    return store
+    return MemoryStore(entry_id=TEST_ENTRY_ID, max_count=10, expiry_days=30)
 
 
 class TestMemoryStoreInit:
@@ -69,7 +68,7 @@ class TestMemoryStoreLoadSave:
     @pytest.mark.asyncio
     async def test_load_from_empty_store(self, memory_store, hass, mock_store):
         """Test loading when store returns None."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value=None)
         memory_store.set_hass(hass)
 
@@ -81,7 +80,7 @@ class TestMemoryStoreLoadSave:
     @pytest.mark.asyncio
     async def test_load_with_existing_data(self, memory_store, hass, mock_store):
         """Test loading when store has existing data."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
@@ -100,7 +99,7 @@ class TestMemoryStoreLoadSave:
     @pytest.mark.asyncio
     async def test_load_does_not_reload(self, memory_store, hass, mock_store):
         """Test that async_load does not reload after first load."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
         memory_store.set_hass(hass)
 
@@ -112,7 +111,7 @@ class TestMemoryStoreLoadSave:
     @pytest.mark.asyncio
     async def test_save_preserves_other_entries(self, memory_store, hass, mock_store):
         """Test save preserves other entries in the store."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={"other_entry": [{"fact": "other"}]}
         )
@@ -134,7 +133,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_add_fact(self, memory_store, hass, mock_store):
         """Test adding a fact stores it correctly."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
         mock_instance.async_save = AsyncMock()
         memory_store.set_hass(hass)
@@ -169,7 +168,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_add_fact_enforces_max_count(self, memory_store, hass, mock_store):
         """Test add_fact removes oldest when exceeding max_count."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         memory_store._max_count = 3
         existing = [
             {"id": "1", "fact": "Oldest", "created_at": 100.0},
@@ -189,9 +188,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_get_facts(self, memory_store, hass, mock_store):
         """Test getting facts returns stored memories."""
-        import time
-
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         now = time.time()
         facts = [
             {
@@ -213,7 +210,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_get_facts_empty(self, memory_store, hass, mock_store):
         """Test get_facts returns empty list when no facts."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value=None)
         memory_store.set_hass(hass)
 
@@ -224,7 +221,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_remove_fact_by_id(self, memory_store, hass, mock_store):
         """Test removing a fact by its ID."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
@@ -248,7 +245,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_remove_fact_by_partial_match(self, memory_store, hass, mock_store):
         """Test removing a fact by partial text match."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
@@ -269,7 +266,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_remove_fact_not_found(self, memory_store, hass, mock_store):
         """Test removing a fact that doesn't exist."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
         memory_store.set_hass(hass)
 
@@ -280,7 +277,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_clear(self, memory_store, hass, mock_store):
         """Test clearing all facts."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
@@ -299,7 +296,7 @@ class TestMemoryStoreFacts:
     @pytest.mark.asyncio
     async def test_get_memory_count(self, memory_store, hass, mock_store):
         """Test getting memory count."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(
             return_value={
                 TEST_ENTRY_ID: [
@@ -321,9 +318,7 @@ class TestMemoryStoreExpiry:
     @pytest.mark.asyncio
     async def test_cleanup_expired_facts(self, memory_store, hass, mock_store):
         """Test that expired facts are cleaned up."""
-        import time
-
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         now = time.time()
         memory_store._expiry_days = 1  # 1 day expiry
 
@@ -354,7 +349,7 @@ class TestMemoryStoreExpiry:
     @pytest.mark.asyncio
     async def test_cleanup_expired_disabled(self, memory_store, hass, mock_store):
         """Test that expiry cleanup can be disabled."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         memory_store._expiry_days = 0
 
         mock_instance.async_load = AsyncMock(
@@ -382,7 +377,7 @@ class TestMemoryStoreEdgeCases:
     @pytest.mark.asyncio
     async def test_save_without_load(self, memory_store, hass, mock_store):
         """Test that save works even without loading first."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value={})
         memory_store.set_hass(hass)
 
@@ -426,11 +421,11 @@ class TestMemoryStoreEdgeCases:
     @pytest.mark.asyncio
     async def test_add_fact_timestamp(self, memory_store, hass, mock_store):
         """Test add_fact sets created_at and last_accessed timestamps."""
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
         memory_store.set_hass(hass)
 
-        memory_id = await memory_store.async_add_fact("Timed fact")
+        await memory_store.async_add_fact("Timed fact")
 
         memory = memory_store._memories[0]
         assert memory["created_at"] > 0
@@ -441,9 +436,7 @@ class TestMemoryStoreEdgeCases:
         self, memory_store, hass, mock_store
     ):
         """Test get_facts updates last_accessed timestamps."""
-        import time
-
-        mock_cls, mock_instance = mock_store
+        _mock_cls, mock_instance = mock_store
         now = time.time()
         mock_instance.async_load = AsyncMock(
             return_value={

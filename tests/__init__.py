@@ -18,6 +18,7 @@ class MockConfigEntry:
         minor_version: int = 1,
         subentries: dict | None = None,
     ) -> None:
+        """Initialize the mock config entry."""
         self.entry_id = entry_id
         self.domain = domain
         self.data = data or {}

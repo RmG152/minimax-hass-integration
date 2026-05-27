@@ -52,7 +52,7 @@ class TestMiniMaxApiClientInit:
         with patch(
             "custom_components.minimax.api.anthropic.AsyncAnthropic"
         ) as mock_anth:
-            client = MiniMaxApiClient(api_key=TEST_API_KEY, session=mock_session)
+            MiniMaxApiClient(api_key=TEST_API_KEY, session=mock_session)
             mock_anth.assert_called_once()
             call_kwargs = mock_anth.call_args[1]
             assert call_kwargs["api_key"] == TEST_API_KEY

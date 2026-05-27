@@ -171,10 +171,9 @@ class TestAsyncMinimaxOptionSchema:
         schema = vol.Schema(schema_dict)
 
         keys = list(schema.schema.keys())
-        key_names = []
-        for k in keys:
-            if isinstance(k, vol.Optional) or isinstance(k, vol.Required):
-                key_names.append(k.schema)
+        key_names = [
+            k.schema for k in keys if isinstance(k, (vol.Optional, vol.Required))
+        ]
 
         assert "name" in key_names
         assert CONF_CHAT_MODEL in key_names
@@ -194,10 +193,9 @@ class TestAsyncMinimaxOptionSchema:
         schema = vol.Schema(schema_dict)
 
         keys = list(schema.schema.keys())
-        key_names = []
-        for k in keys:
-            if isinstance(k, vol.Optional) or isinstance(k, vol.Required):
-                key_names.append(k.schema)
+        key_names = [
+            k.schema for k in keys if isinstance(k, (vol.Optional, vol.Required))
+        ]
 
         assert "name" in key_names
         assert CONF_VOICE_ID in key_names
@@ -215,10 +213,9 @@ class TestAsyncMinimaxOptionSchema:
         schema = vol.Schema(schema_dict)
 
         keys = list(schema.schema.keys())
-        key_names = []
-        for k in keys:
-            if isinstance(k, vol.Optional) or isinstance(k, vol.Required):
-                key_names.append(k.schema)
+        key_names = [
+            k.schema for k in keys if isinstance(k, (vol.Optional, vol.Required))
+        ]
 
         assert "name" in key_names
         assert CONF_PROMPT in key_names
@@ -233,10 +230,9 @@ class TestAsyncMinimaxOptionSchema:
         schema = vol.Schema(schema_dict)
 
         keys = list(schema.schema.keys())
-        key_names = []
-        for k in keys:
-            if isinstance(k, vol.Optional) or isinstance(k, vol.Required):
-                key_names.append(k.schema)
+        key_names = [
+            k.schema for k in keys if isinstance(k, (vol.Optional, vol.Required))
+        ]
 
         assert "name" not in key_names
 
@@ -251,10 +247,7 @@ class TestAsyncMinimaxOptionSchema:
             schema = vol.Schema(schema_dict)
 
             keys = list(schema.schema.keys())
-            key_names = []
-            for k in keys:
-                if isinstance(k, vol.Required):
-                    key_names.append(k.schema)
+            key_names = [k.schema for k in keys if isinstance(k, vol.Required)]
 
             assert CONF_RECOMMENDED in key_names
 

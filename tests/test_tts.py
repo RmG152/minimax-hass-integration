@@ -52,12 +52,11 @@ class TestMiniMaxTTSEntity:
         """Create a TTS entity for testing."""
         entry = _make_config_entry()
         subentry = _make_subentry()
-        entity = minimax_tts.MiniMaxTTSEntity(
+        return minimax_tts.MiniMaxTTSEntity(
             config_entry=entry,
             subentry=subentry,
             client=mock_client,
         )
-        return entity
 
     def test_entity_properties(self, entity):
         """Test entity properties are set correctly."""
