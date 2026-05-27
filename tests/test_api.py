@@ -403,7 +403,8 @@ class TestAsyncImageGeneration:
             mock_ctx = MagicMock()
             mock_httpx.return_value = mock_ctx
             mock_client = AsyncMock()
-            mock_ctx.__aenter__.return_value = mock_client
+            mock_ctx.__aenter__ = AsyncMock(return_value=mock_client)
+            mock_ctx.__aexit__ = AsyncMock(return_value=False)
             mock_resp = MagicMock()
             mock_resp.raise_for_status = MagicMock()
             mock_resp.content = b"image_from_url"
