@@ -13,3 +13,4 @@ pytest-asyncio
 hassil
 home-assistant-intents
 mutagen
+jsonpickle>=4.0.2 # not directly required, pinned by Snyk to avoid a vulnerability
