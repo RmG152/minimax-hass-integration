@@ -348,7 +348,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "conversation")
+        flow.handler = (entry.entry_id, "conversation")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
         return flow
 
@@ -389,7 +389,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "tts")
+        flow.handler = (entry.entry_id, "tts")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
         result = await flow.async_step_user(user_input=None)
@@ -407,7 +407,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "tts")
+        flow.handler = (entry.entry_id, "tts")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
         await flow.async_step_user(user_input=None)
@@ -428,7 +428,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "stt")
+        flow.handler = (entry.entry_id, "stt")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
         result = await flow.async_step_user(user_input=None)
@@ -445,7 +445,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "ai_task_data")
+        flow.handler = (entry.entry_id, "ai_task_data")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
         result = await flow.async_step_user(user_input=None)
@@ -463,7 +463,7 @@ class TestLLMSubentryFlowHandler:
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = ("minimax", "ai_task_data")
+        flow.handler = (entry.entry_id, "ai_task_data")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
         await flow.async_step_user(user_input=None)

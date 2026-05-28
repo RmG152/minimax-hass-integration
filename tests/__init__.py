@@ -37,11 +37,19 @@ class MockConfigEntry:
         """Add this entry to hass."""
         hass.config_entries._entries[self.entry_id] = self
 
-    def add_update_listener(self, listener) -> None:
-        """Stub for config entry update listener."""
+    def add_update_listener(self, listener):
+        """Register update listener and return unsubscribe callable."""
+        self._update_listeners = getattr(self, "_update_listeners", [])
+        self._update_listeners.append(listener)
+
+        def _unlisten():
+            self._update_listeners.remove(listener)
+
+        return _unlisten
 
     def async_on_unload(self, callback) -> None:
         """Register callback for unload."""
+        self._on_unload.append(callback)
 
 
 TEST_API_KEY = "test_api_key_12345"
