@@ -60,13 +60,11 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_VOL,
     DOMAIN,
-    LANGUAGE_NAMES,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
-    VOICE_IDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -242,9 +240,7 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             if user_input.get(CONF_RECOMMENDED) == self.last_rendered_recommended:
                 if self._is_new:
                     _LOGGER.info("Creating new subentry: %s", self._subentry_type)
-                    subentry_data = {
-                        k: v for k, v in user_input.items() if k != "name"
-                    }
+                    subentry_data = {k: v for k, v in user_input.items() if k != "name"}
                     return self.async_create_entry(
                         title=user_input["name"],
                         data=subentry_data,

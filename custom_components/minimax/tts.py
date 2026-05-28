@@ -104,7 +104,9 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         pitch = options.get(
             CONF_PITCH, self.subentry.data.get(CONF_PITCH, DEFAULT_PITCH)
         )
-        language_boost = self.subentry.data.get(CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST)
+        language_boost = self.subentry.data.get(
+            CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+        )
         _LOGGER.debug(
             "TTS options: voice=%s, speed=%s, vol=%s, pitch=%s, language_boost=%s",
             voice_id,
