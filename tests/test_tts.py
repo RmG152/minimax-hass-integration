@@ -90,7 +90,7 @@ class TestMiniMaxTTSEntity:
 
     def test_async_get_supported_voices_for_unsupported(self, entity):
         """Test async_get_supported_voices returns None for unsupported."""
-        assert entity.async_get_supported_voices("fr-FR") is None
+        assert entity.async_get_supported_voices("xx-XX") is None
 
     def test_async_get_supported_voices_for_chinese(self, entity):
         """Test async_get_supported_voices returns voices for zh-CN."""

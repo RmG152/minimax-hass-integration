@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.minimax import async_setup_entry, async_unload_entry
+from custom_components.minimax.api import MiniMaxApiClientError
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 
@@ -53,7 +54,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("401 Unauthorized")
+                side_effect=MiniMaxApiClientError("401 Unauthorized")
             )
             mock_client_class.return_value = mock_instance
 
@@ -69,7 +70,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("Timeout connecting to MiniMax API")
+                side_effect=MiniMaxApiClientError("Timeout connecting to MiniMax API")
             )
             mock_client_class.return_value = mock_instance
 
@@ -85,7 +86,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("authentication failed: bad key")
+                side_effect=MiniMaxApiClientError("authentication failed: bad key")
             )
             mock_client_class.return_value = mock_instance
 

@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
@@ -24,6 +25,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
+    TextSelector,
 )
 
 from .api import MiniMaxApiClient, MiniMaxApiClientError
@@ -34,6 +36,7 @@ from .const import (
     CONF_CONVERSATION_EXPIRY_MINUTES,
     CONF_CONVERSATION_MAX_TOKENS,
     CONF_CONVERSATION_TTS_ENABLED,
+    CONF_LANGUAGE_BOOST,
     CONF_MEMORY_ENABLED,
     CONF_MEMORY_EXPIRY_DAYS,
     CONF_MEMORY_MAX_COUNT,
@@ -48,6 +51,7 @@ from .const import (
     DEFAULT_CONVERSATION_MAX_TOKENS,
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_CONVERSATION_TTS_ENABLED,
+    DEFAULT_LANGUAGE_BOOST,
     DEFAULT_MEMORY_ENABLED,
     DEFAULT_MEMORY_EXPIRY_DAYS,
     DEFAULT_MEMORY_MAX_COUNT,
@@ -61,7 +65,6 @@ from .const import (
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
-    VOICE_IDS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -202,6 +205,13 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Set subentry options."""
+        if self._get_entry().state is not ConfigEntryState.LOADED:
+            _LOGGER.warning(
+                "Cannot modify subentry for unloaded entry: %s",
+                self._get_entry().entry_id,
+            )
+            return self.async_abort(reason="entry_not_loaded")
+
         _LOGGER.debug(
             "async_step_set_options called for %s, input: %s",
             self._subentry_type,
@@ -230,9 +240,10 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             if user_input.get(CONF_RECOMMENDED) == self.last_rendered_recommended:
                 if self._is_new:
                     _LOGGER.info("Creating new subentry: %s", self._subentry_type)
+                    subentry_data = {k: v for k, v in user_input.items() if k != "name"}
                     return self.async_create_entry(
-                        title=user_input.pop("name"),
-                        data=user_input,
+                        title=user_input["name"],
+                        data=subentry_data,
                     )
                 _LOGGER.info("Updating existing subentry: %s", self._subentry_type)
                 return self.async_update_and_abort(
@@ -281,6 +292,65 @@ def async_minimax_option_schema(
         schema[vol.Required("name", default=default_name)] = str
 
     if subentry_type == "conversation":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_PROMPT,
+                    description={"suggested_value": options.get(CONF_PROMPT, "")},
+                ): TemplateSelector(),
+                vol.Optional(
+                    CONF_CONVERSATION_TTS_ENABLED,
+                    default=options.get(
+                        CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
+                    ),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_MEMORY_ENABLED,
+                    default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
+                ): BooleanSelector(),
+            }
+        )
+    elif subentry_type == "tts":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_VOICE_ID,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_VOICE_ID, "English_PlayfulGirl"
+                        )
+                    },
+                ): TextSelector(),
+                vol.Optional(
+                    CONF_LANGUAGE_BOOST,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+                        )
+                    },
+                ): TextSelector(),
+            }
+        )
+    elif subentry_type == "stt":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_PROMPT,
+                    description={"suggested_value": options.get(CONF_PROMPT, "")},
+                ): TemplateSelector(),
+            }
+        )
+    elif subentry_type == "ai_task_data":
+        pass
+
+    schema[
+        vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
+    ] = bool
+
+    if options.get(CONF_RECOMMENDED):
+        return schema
+
+    if subentry_type == "conversation":
         default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {
@@ -296,16 +366,6 @@ def async_minimax_option_schema(
                         ],
                     )
                 ),
-                vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
-                vol.Optional(
-                    CONF_CONVERSATION_TTS_ENABLED,
-                    default=options.get(
-                        CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
-                    ),
-                ): BooleanSelector(),
                 vol.Optional(
                     CONF_CONVERSATION_MAX_TOKENS,
                     default=options.get(
@@ -330,10 +390,6 @@ def async_minimax_option_schema(
                     )
                 ),
                 vol.Optional(
-                    CONF_MEMORY_ENABLED,
-                    default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
-                ): BooleanSelector(),
-                vol.Optional(
                     CONF_MEMORY_MAX_COUNT,
                     default=options.get(
                         CONF_MEMORY_MAX_COUNT, DEFAULT_MEMORY_MAX_COUNT
@@ -348,26 +404,8 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "tts":
-        default_voice = options.get(CONF_VOICE_ID, "English_PlayfulGirl")
-
-        voice_options = []
-        for voice_id in VOICE_IDS.get("en-US", []):
-            voice_name = voice_id.split("_", 2)[-1].replace("_", " ").replace("-", " ")
-            voice_options.append(
-                SelectOptionDict(label=f"English - {voice_name}", value=voice_id)
-            )
-
         schema.update(
             {
-                vol.Optional(
-                    CONF_VOICE_ID,
-                    description={"suggested_value": default_voice},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=voice_options,
-                    )
-                ),
                 vol.Optional(
                     CONF_SPEED,
                     default=options.get(CONF_SPEED, DEFAULT_SPEED),
@@ -382,40 +420,23 @@ def async_minimax_option_schema(
                 ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
             }
         )
-    elif subentry_type == "stt":
+    elif subentry_type == "ai_task_data":
+        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {
                 vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
+                    CONF_CHAT_MODEL,
+                    description={"suggested_value": default_model},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            SelectOptionDict(label=m["label"], value=m["value"])
+                            for m in CHAT_MODELS
+                        ],
+                    )
+                ),
             }
         )
-    # elif subentry_type == "ai_task_data":
-    #     default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-    #     schema.update(
-    #         {
-    #             vol.Optional(
-    #                 CONF_CHAT_MODEL,
-    #                 description={"suggested_value": default_model},
-    #             ): SelectSelector(
-    #                 SelectSelectorConfig(
-    #                     mode=SelectSelectorMode.DROPDOWN,
-    #                     options=[
-    #                         SelectOptionDict(label=m["label"], value=m["value"])
-    #                         for m in CHAT_MODELS
-    #                     ],
-    #                 )
-    #             ),
-    #             vol.Optional(
-    #                 CONF_PROMPT,
-    #                 description={"suggested_value": options.get(CONF_PROMPT, "")},
-    #             ): TemplateSelector(),
-    #         }
-    #     )
-
-    schema[
-        vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
-    ] = bool
 
     return schema

@@ -8,7 +8,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
-from .api import MiniMaxApiClient
+from .api import MiniMaxApiClient, MiniMaxApiClientError
 from .const import DOMAIN, LOGGER, PLATFORMS
 
 type MiniMaxConfigEntry = ConfigEntry[MiniMaxApiClient]
@@ -32,8 +32,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> b
 
     try:
         await client.async_verify_connection()
-    except Exception as err:
-        if "401" in str(err) or "authentication" in str(err).lower():
+    except MiniMaxApiClientError as err:
+        err_str = str(err)
+        if (
+            "401" in err_str
+            or "authentication" in err_str.lower()
+            or "api_key" in err_str.lower()
+            or "invalid api key" in err_str.lower()
+        ):
             raise ConfigEntryAuthFailed("Invalid API key") from err
         raise ConfigEntryNotReady(f"Failed to connect to MiniMax API: {err}") from err
 
@@ -41,7 +47,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> b
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
+
     return True
+
+
+async def async_update_options(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> None:
+    """Reload entry when options or subentries change."""
+    LOGGER.debug("Reloading MiniMax entry due to options/subentry change")
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> bool:
