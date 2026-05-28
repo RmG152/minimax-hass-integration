@@ -71,19 +71,15 @@ def hass():
     config_entries.flow.async_configure = AsyncMock()
     config_entries.async_forward_entry_setups = AsyncMock(return_value=True)
     config_entries.async_unload_platforms = AsyncMock(return_value=True)
+    config_entries.async_reload = AsyncMock(return_value=True)
 
     def _async_entries(domain, include_ignore=True):
         return [e for e in config_entries._entries.values() if e.domain == domain]
 
-    def _async_get_entry(entry_id):
-        return config_entries._entries.get(entry_id)
-
-    def _async_get_known_entry(entry_id):
-        return config_entries._entries.get(entry_id)
-
     config_entries.async_entries = _async_entries
-    config_entries.async_get_entry = _async_get_entry
-    config_entries.async_get_known_entry = _async_get_known_entry
+    config_entries.async_get_known_entry = lambda entry_id: config_entries._entries.get(
+        entry_id
+    )
     hass.config_entries = config_entries
 
     hass.async_block_till_done = AsyncMock()

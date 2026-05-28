@@ -14,3 +14,4 @@ hassil
 home-assistant-intents
 mutagen
 requests>=2.31.0 # not directly required, pinned by Snyk to avoid a vulnerability
+httpx>=0.23.0 # not directly required, pinned by Snyk to avoid a vulnerability
