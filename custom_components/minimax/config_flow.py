@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
     ConfigEntry,
+    ConfigEntryState,
     ConfigFlow,
     ConfigFlowResult,
     ConfigSubentryFlow,
@@ -202,6 +203,13 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         """Set subentry options."""
+        if self._get_entry().state is not ConfigEntryState.LOADED:
+            _LOGGER.warning(
+                "Cannot modify subentry for unloaded entry: %s",
+                self._get_entry().entry_id,
+            )
+            return self.async_abort(reason="entry_not_loaded")
+
         _LOGGER.debug(
             "async_step_set_options called for %s, input: %s",
             self._subentry_type,
@@ -230,9 +238,12 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             if user_input.get(CONF_RECOMMENDED) == self.last_rendered_recommended:
                 if self._is_new:
                     _LOGGER.info("Creating new subentry: %s", self._subentry_type)
+                    subentry_data = {
+                        k: v for k, v in user_input.items() if k != "name"
+                    }
                     return self.async_create_entry(
-                        title=user_input.pop("name"),
-                        data=user_input,
+                        title=user_input["name"],
+                        data=subentry_data,
                     )
                 _LOGGER.info("Updating existing subentry: %s", self._subentry_type)
                 return self.async_update_and_abort(
@@ -391,29 +402,6 @@ def async_minimax_option_schema(
                 ): TemplateSelector(),
             }
         )
-    # elif subentry_type == "ai_task_data":
-    #     default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-    #     schema.update(
-    #         {
-    #             vol.Optional(
-    #                 CONF_CHAT_MODEL,
-    #                 description={"suggested_value": default_model},
-    #             ): SelectSelector(
-    #                 SelectSelectorConfig(
-    #                     mode=SelectSelectorMode.DROPDOWN,
-    #                     options=[
-    #                         SelectOptionDict(label=m["label"], value=m["value"])
-    #                         for m in CHAT_MODELS
-    #                     ],
-    #                 )
-    #             ),
-    #             vol.Optional(
-    #                 CONF_PROMPT,
-    #                 description={"suggested_value": options.get(CONF_PROMPT, "")},
-    #             ): TemplateSelector(),
-    #         }
-    #     )
-
     schema[
         vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
     ] = bool

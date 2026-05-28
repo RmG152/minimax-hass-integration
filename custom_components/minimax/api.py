@@ -48,7 +48,6 @@ class MiniMaxApiClient:
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
                 timeout=httpx.Timeout(AI_TASK_TIMEOUT),
-                verify=False,
             ),
         )
 

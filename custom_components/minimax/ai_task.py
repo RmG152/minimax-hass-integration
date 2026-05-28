@@ -1,6 +1,7 @@
 """AI Task support for MiniMax."""
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from homeassistant.components import ai_task, conversation
@@ -117,6 +118,9 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 raise HomeAssistantError(msg)  # noqa: TRY301
 
             text = result.get("text", "")
+            text = re.sub(
+                r"<think>.*?</think>", "", text, flags=re.DOTALL
+            ).strip()
 
             chat_log.async_add_assistant_content_without_tools(
                 conversation.AssistantContent(
@@ -131,10 +135,19 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                     data=text,
                 )
 
+            if not text:
+                raise HomeAssistantError(
+                    "MiniMax returned an empty response, expected structured data"
+                )
+
             try:
                 data = json_loads(text)
             except Exception as err:
-                _LOGGER.error("Failed to parse JSON response: %s", err)
+                _LOGGER.error(
+                    "Failed to parse JSON response: %s. Response: %s",
+                    err,
+                    text[:200],
+                )
                 raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
 
             return ai_task.GenDataTaskResult(
