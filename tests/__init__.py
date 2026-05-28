@@ -3,6 +3,8 @@
 from typing import Any
 from unittest.mock import AsyncMock
 
+from homeassistant.config_entries import ConfigEntryState
+
 
 class MockConfigEntry:
     """Simple mock for Home Assistant ConfigEntry."""
@@ -28,10 +30,18 @@ class MockConfigEntry:
         self.subentries = subentries or {}
         self.options: dict[str, Any] = {}
         self.runtime_data: Any = None
+        self.state = ConfigEntryState.LOADED
+        self._on_unload: list = []
 
     def add_to_hass(self, hass: Any) -> None:
         """Add this entry to hass."""
         hass.config_entries._entries[self.entry_id] = self
+
+    def add_update_listener(self, listener) -> None:
+        """Stub for config entry update listener."""
+
+    def async_on_unload(self, callback) -> None:
+        """Register callback for unload."""
 
 
 TEST_API_KEY = "test_api_key_12345"

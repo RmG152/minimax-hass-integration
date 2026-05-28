@@ -75,7 +75,15 @@ def hass():
     def _async_entries(domain, include_ignore=True):
         return [e for e in config_entries._entries.values() if e.domain == domain]
 
+    def _async_get_entry(entry_id):
+        return config_entries._entries.get(entry_id)
+
+    def _async_get_known_entry(entry_id):
+        return config_entries._entries.get(entry_id)
+
     config_entries.async_entries = _async_entries
+    config_entries.async_get_entry = _async_get_entry
+    config_entries.async_get_known_entry = _async_get_known_entry
     hass.config_entries = config_entries
 
     hass.async_block_till_done = AsyncMock()
