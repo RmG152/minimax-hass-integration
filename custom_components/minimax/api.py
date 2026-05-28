@@ -125,9 +125,24 @@ class MiniMaxApiClient:
         vol: float,
         pitch: int,
         model: str,
+        language_boost: str | None = None,
     ) -> bytes:
         """Generate TTS audio using MiniMax API."""
         try:
+            payload: dict[str, Any] = {
+                "model": model,
+                "text": text,
+                "stream": False,
+                "voice_setting": {
+                    "voice_id": voice_id,
+                    "speed": speed,
+                    "vol": vol,
+                    "pitch": pitch,
+                },
+            }
+            if language_boost:
+                payload["language_boost"] = language_boost
+
             async with asyncio.timeout(TTS_TIMEOUT):
                 response = await self._session.post(
                     MINIMAX_TTS_API,
@@ -135,17 +150,7 @@ class MiniMaxApiClient:
                         "Authorization": f"Bearer {self._api_key}",
                         "Content-Type": "application/json",
                     },
-                    json={
-                        "model": model,
-                        "text": text,
-                        "stream": False,
-                        "voice_setting": {
-                            "voice_id": voice_id,
-                            "speed": speed,
-                            "vol": vol,
-                            "pitch": pitch,
-                        },
-                    },
+                    json=payload,
                 )
                 response.raise_for_status()
                 result = await response.json()

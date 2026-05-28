@@ -25,6 +25,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TemplateSelector,
+    TextSelector,
 )
 
 from .api import MiniMaxApiClient, MiniMaxApiClientError
@@ -35,6 +36,7 @@ from .const import (
     CONF_CONVERSATION_EXPIRY_MINUTES,
     CONF_CONVERSATION_MAX_TOKENS,
     CONF_CONVERSATION_TTS_ENABLED,
+    CONF_LANGUAGE_BOOST,
     CONF_MEMORY_ENABLED,
     CONF_MEMORY_EXPIRY_DAYS,
     CONF_MEMORY_MAX_COUNT,
@@ -49,6 +51,7 @@ from .const import (
     DEFAULT_CONVERSATION_MAX_TOKENS,
     DEFAULT_CONVERSATION_NAME,
     DEFAULT_CONVERSATION_TTS_ENABLED,
+    DEFAULT_LANGUAGE_BOOST,
     DEFAULT_MEMORY_ENABLED,
     DEFAULT_MEMORY_EXPIRY_DAYS,
     DEFAULT_MEMORY_MAX_COUNT,
@@ -312,32 +315,24 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "tts":
-        default_voice = options.get(CONF_VOICE_ID, "English_PlayfulGirl")
-
-        voice_options = []
-        for lang_code, voices in VOICE_IDS.items():
-            lang_name = LANGUAGE_NAMES.get(lang_code, lang_code)
-            for voice_id in voices:
-                voice_name = (
-                    voice_id.split("_", 1)[-1].replace("_", " ").replace("-", " ")
-                )
-                voice_options.append(
-                    SelectOptionDict(
-                        label=f"{lang_name} - {voice_name}", value=voice_id
-                    )
-                )
-
         schema.update(
             {
                 vol.Optional(
                     CONF_VOICE_ID,
-                    description={"suggested_value": default_voice},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=voice_options,
-                    )
-                ),
+                    description={
+                        "suggested_value": options.get(
+                            CONF_VOICE_ID, "English_PlayfulGirl"
+                        )
+                    },
+                ): TextSelector(),
+                vol.Optional(
+                    CONF_LANGUAGE_BOOST,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+                        )
+                    },
+                ): TextSelector(),
             }
         )
     elif subentry_type == "stt":

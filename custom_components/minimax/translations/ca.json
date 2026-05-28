@@ -107,13 +107,15 @@
           "data": {
             "name": "Nom",
             "voice_id": "Veu",
+            "language_boost": "Impuls d'idioma",
             "speed": "Velocitat",
             "vol": "Volum",
             "pitch": "To",
             "recommended": "Utilitzar ajustos recomanats"
           },
           "data_description": {
-            "voice_id": "Selecciona la veu per a la sortida de text a veu",
+            "voice_id": "Introdueix qualsevol ID de veu (p. ex. English_PlayfulGirl o un ID numèric). La llista oficial de veus MiniMax està a platform.minimax.io/docs/faq/system-voice-id",
+            "language_boost": "Suggeriment d'idioma opcional per millorar la pronunciació (p. ex. Catalan, Spanish, Danish). Deixa-ho buit per a detecció automàtica.",
             "speed": "Multiplicador de velocitat de parla (0.5 a 2.0)",
             "vol": "Nivell de volum (0.0 a 2.0)",
             "pitch": "Ajust del to de veu (-10 a 10)"

@@ -107,13 +107,15 @@
           "data": {
             "name": "Name",
             "voice_id": "Voice",
+            "language_boost": "Language Boost",
             "speed": "Speed",
             "vol": "Volume",
             "pitch": "Pitch",
             "recommended": "Use Recommended Settings"
           },
           "data_description": {
-            "voice_id": "Select the voice for text-to-speech output",
+            "voice_id": "Enter any voice ID (e.g., English_PlayfulGirl or a numeric ID). The official MiniMax voice list is available at platform.minimax.io/docs/faq/system-voice-id",
+            "language_boost": "Optional language hint for better pronunciation (e.g., Catalan, Spanish, Danish). Leave empty for auto-detection.",
             "speed": "Speech speed multiplier (0.5 to 2.0)",
             "vol": "Volume level (0.0 to 2.0)",
             "pitch": "Voice pitch adjustment (-10 to 10)"
