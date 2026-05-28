@@ -515,10 +515,9 @@ class TestLLMSubentryFlowHandler:
         """Test subentry flow with reconfigure (existing subentry)."""
         from unittest.mock import MagicMock
 
+        from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
         from homeassistant.config_entries import SOURCE_RECONFIGURE
         from tests import create_mock_minimax_config_entry
-
-        from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
 
         entry = create_mock_minimax_config_entry(hass)
         subentry = MagicMock()
