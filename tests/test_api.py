@@ -215,7 +215,7 @@ class TestAsyncChat:
             timeout=15.0,
         )
         call_kwargs = mock_anthropic.messages.create.call_args[1]
-        assert call_kwargs["timeout"] == 15.0
+        assert call_kwargs["timeout"] == pytest.approx(15.0)
 
     async def test_empty_content(self, api_client, mock_anthropic):
         """Test empty content returns empty text."""
@@ -467,7 +467,7 @@ class TestAsyncImageGeneration:
         mock_response = AsyncMock()
         mock_response.raise_for_status = MagicMock()
         mock_response.json = AsyncMock(
-            return_value={"data": {"image_urls": ["http://evil.com/img.jpg"]}}
+            return_value={"data": {"image_urls": ["https://evil.com/img.jpg"]}}
         )
         mock_session.post.return_value = mock_response
 
