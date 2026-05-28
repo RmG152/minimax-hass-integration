@@ -513,14 +513,25 @@ class TestLLMSubentryFlowHandler:
 
     async def test_subentry_flow_reconfigure(self, hass):
         """Test subentry flow with reconfigure (existing subentry)."""
+        from unittest.mock import MagicMock
+
+        from homeassistant.config_entries import SOURCE_RECONFIGURE
         from tests import create_mock_minimax_config_entry
 
+        from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
+
         entry = create_mock_minimax_config_entry(hass)
+        subentry = MagicMock()
+        subentry.subentry_id = "conv_001"
+        subentry.subentry_type = "conversation"
+        subentry.title = "My Agent"
+        subentry.data = RECOMMENDED_CONVERSATION_OPTIONS.copy()
+        entry.subentries = {"conv_001": subentry}
 
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
-        flow.handler = (entry.entry_id, "conversation")
-        flow.context = {"source": "reauth", "entry_id": entry.entry_id}
+        flow.handler = (entry.entry_id, "conv_001")
+        flow.context = {"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id}
 
         result = await flow.async_step_reconfigure(user_input=None)
         assert result["type"] == FlowResultType.FORM

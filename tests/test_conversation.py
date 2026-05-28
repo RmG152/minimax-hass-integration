@@ -332,9 +332,9 @@ class TestConversationHelpers:
         result = minimax_conversation._build_system_prompt(
             "Prompt.", hass, "test_agent"
         )
-        assert "automation.night_mode" not in result
-        assert "scene.movie" not in result
-        assert "light.living_room" in result
+        assert "Night Mode" not in result
+        assert "Movie Scene" not in result
+        assert "Living Room" in result
 
     @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
     def test_build_system_prompt_exception_returns_prompt(self, mock_get_exposed):
