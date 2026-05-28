@@ -29,6 +29,24 @@ ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax
 _LOGGER = logging.getLogger(__name__)
 
 
+def _raise_parse_error() -> None:
+    """Raise parse error."""
+    raise HomeAssistantError(ERROR_GETTING_RESPONSE)
+
+
+def _extract_json(text: str) -> str:
+    """Extract JSON from markdown code blocks or raw text."""
+    # Try fenced code block first
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    # Try raw JSON object/array
+    match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return text.strip()
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -82,6 +100,13 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
         options = self.subentry.data
         model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
 
+        _LOGGER.debug(
+            "AI task generate_data: model=%s, has_structure=%s, instructions=%s",
+            model,
+            bool(task.structure),
+            task.instructions[:100] if task.instructions else "",
+        )
+
         try:
             chat_log.async_add_user_content(
                 conversation.UserContent(
@@ -103,6 +128,26 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
             if chat_log.content and chat_log.content[0].role == "system":
                 system_prompt = chat_log.content[0].content or ""
 
+            if task.structure:
+                json_instruction = (
+                    "\n\nCRITICAL: You must respond with ONLY a valid JSON object. "
+                    "Do not include any markdown formatting, explanations, or other text. "
+                    "Your entire response must be parseable as JSON."
+                )
+                if system_prompt:
+                    system_prompt += json_instruction
+                else:
+                    system_prompt = json_instruction.lstrip()
+                _LOGGER.debug(
+                    "AI task: added JSON-only instruction to system prompt"
+                )
+
+            _LOGGER.debug(
+                "AI task: calling async_chat with system_prompt=%s, messages_count=%d",
+                bool(system_prompt),
+                len(messages),
+            )
+
             result = await self._client.async_chat(
                 model=model,
                 messages=messages,
@@ -119,6 +164,12 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
 
             text = result.get("text", "")
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
+
+            _LOGGER.debug(
+                "AI task: raw response length=%d, content=%s",
+                len(text),
+                text[:500] if text else "<empty>",
+            )
 
             chat_log.async_add_assistant_content_without_tools(
                 conversation.AssistantContent(
@@ -137,15 +188,38 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 msg = "MiniMax returned an empty response, expected structured data"
                 raise HomeAssistantError(msg)  # noqa: TRY301
 
-            try:
-                data = json_loads(text)
-            except Exception as err:
-                _LOGGER.error(
-                    "Failed to parse JSON response: %s. Response: %s",
-                    err,
-                    text[:200],
+            # Try parsing the raw text first
+            data = None
+            parse_errors = []
+            candidates = [text, _extract_json(text)]
+            for attempt, candidate in enumerate(candidates, 1):
+                if not candidate:
+                    continue
+                _LOGGER.debug(
+                    "AI task: JSON parse attempt %d, candidate_length=%d, candidate=%s",
+                    attempt,
+                    len(candidate),
+                    candidate[:300],
                 )
-                raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
+                try:
+                    data = json_loads(candidate)
+                    _LOGGER.debug(
+                        "AI task: JSON parsed successfully on attempt %d", attempt
+                    )
+                    break
+                except (ValueError, TypeError) as err:
+                    parse_errors.append(f"Attempt {attempt}: {err}")
+                    if attempt == len(candidates):
+                        _LOGGER.error(
+                            "AI task: Failed to parse JSON. Errors: %s. "
+                            "Full response (%d chars): %s",
+                            "; ".join(parse_errors),
+                            len(text),
+                            text,
+                        )
+
+            if data is None:
+                _raise_parse_error()
 
             return ai_task.GenDataTaskResult(
                 conversation_id=chat_log.conversation_id,
