@@ -1,5 +1,6 @@
 """AI Task support for MiniMax."""
 
+import hashlib
 import logging
 import re
 from typing import TYPE_CHECKING, Any
@@ -49,77 +50,83 @@ def _schema_to_description(schema: vol.Schema) -> str:
     return _openapi_schema_to_text(openapi_schema)
 
 
+def _format_object_schema(schema: dict[str, Any], indent: int) -> str:
+    """Format an object-type schema into a text description."""
+    properties = schema.get("properties", {})
+    required = set(schema.get("required", []))
+    lines: list[str] = []
+    prefix = "  " * indent
+
+    if indent == 0:
+        lines.append("{")
+
+    for key, prop in properties.items():
+        is_required = key in required
+        prop_type = prop.get("type", "any") if isinstance(prop, dict) else "any"
+        prop_desc = prop.get("description", "") if isinstance(prop, dict) else ""
+        prop_enum = prop.get("enum") if isinstance(prop, dict) else None
+
+        if prop_type == "object" and isinstance(prop, dict):
+            nested = _openapi_schema_to_text(prop, indent + 1)
+            line = f'{prefix}  "{key}": {nested}'
+        elif prop_type == "array" and isinstance(prop, dict):
+            items = prop.get("items", {})
+            item_type = items.get("type", "any") if isinstance(items, dict) else "any"
+            line = f'{prefix}  "{key}": [<{item_type}>]'
+        else:
+            type_hint = prop_type
+            if prop_enum:
+                type_hint = f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
+            line = f'{prefix}  "{key}": <{type_hint}>'
+
+        if prop_desc:
+            line += f" - {prop_desc}"
+        if is_required:
+            line += " (required)"
+
+        lines.append(line)
+
+    if indent == 0:
+        lines.append("}")
+
+    return "\n".join(lines)
+
+
+def _format_array_schema(schema: dict[str, Any], indent: int) -> str:
+    """Format an array-type schema into a text description."""
+    items = schema.get("items", {})
+    if isinstance(items, dict) and items.get("type") == "object":
+        nested = _openapi_schema_to_text(items, indent)
+        return f"[{nested}]"
+    item_type = items.get("type", "any") if isinstance(items, dict) else "any"
+    return f"[<array of {item_type}>]"
+
+
+def _format_scalar_schema(schema: dict[str, Any]) -> str:
+    """Format a scalar-type schema into a text description."""
+    desc = schema.get("description", "")
+    enum = schema.get("enum")
+    schema_type = schema.get("type", "any")
+    if enum:
+        type_hint = f"{schema_type} (one of: {', '.join(str(e) for e in enum)})"
+    else:
+        type_hint = schema_type
+    line = f"<{type_hint}>"
+    if desc:
+        line += f" - {desc}"
+    return line
+
+
 def _openapi_schema_to_text(schema: dict[str, Any], indent: int = 0) -> str:
     """Recursively convert an OpenAPI schema dict to a text description."""
     if not isinstance(schema, dict):
         return str(schema)
-
-    lines: list[str] = []
-    prefix = "  " * indent
-
     schema_type = schema.get("type", "object")
-
     if schema_type == "object":
-        properties = schema.get("properties", {})
-        required = set(schema.get("required", []))
-
-        if indent == 0:
-            lines.append("{")
-
-        for key, prop in properties.items():
-            is_required = key in required
-            prop_type = prop.get("type", "any") if isinstance(prop, dict) else "any"
-            prop_desc = prop.get("description", "") if isinstance(prop, dict) else ""
-            prop_enum = prop.get("enum") if isinstance(prop, dict) else None
-
-            if prop_type == "object" and isinstance(prop, dict):
-                nested = _openapi_schema_to_text(prop, indent + 1)
-                line = f'{prefix}  "{key}": {nested}'
-            elif prop_type == "array" and isinstance(prop, dict):
-                items = prop.get("items", {})
-                item_type = (
-                    items.get("type", "any") if isinstance(items, dict) else "any"
-                )
-                line = f'{prefix}  "{key}": [<{item_type}>]'
-            else:
-                type_hint = prop_type
-                if prop_enum:
-                    type_hint = (
-                        f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
-                    )
-                line = f'{prefix}  "{key}": <{type_hint}>'
-
-            if prop_desc:
-                line += f" - {prop_desc}"
-            if is_required:
-                line += " (required)"
-
-            lines.append(line)
-
-        if indent == 0:
-            lines.append("}")
-
-    elif schema_type == "array":
-        items = schema.get("items", {})
-        if isinstance(items, dict) and items.get("type") == "object":
-            nested = _openapi_schema_to_text(items, indent)
-            lines.append(f"[{nested}]")
-        else:
-            item_type = items.get("type", "any") if isinstance(items, dict) else "any"
-            lines.append(f"[<array of {item_type}>]")
-    else:
-        desc = schema.get("description", "")
-        enum = schema.get("enum")
-        if enum:
-            type_hint = f"{schema_type} (one of: {', '.join(str(e) for e in enum)})"
-        else:
-            type_hint = schema_type
-        line = f"<{type_hint}>"
-        if desc:
-            line += f" - {desc}"
-        lines.append(line)
-
-    return "\n".join(lines)
+        return _format_object_schema(schema, indent)
+    if schema_type == "array":
+        return _format_array_schema(schema, indent)
+    return _format_scalar_schema(schema)
 
 
 def _raise_parse_error() -> None:
@@ -127,16 +134,26 @@ def _raise_parse_error() -> None:
     raise HomeAssistantError(ERROR_GETTING_RESPONSE)
 
 
+def _extract_fenced_code(text: str) -> str | None:
+    """Extract content from a markdown fenced code block."""
+    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    return match.group(1).strip() if match else None
+
+
+def _extract_json_literal(text: str) -> str | None:
+    """Extract a JSON object or array literal from text."""
+    match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
+    return match.group(1).strip() if match else None
+
+
 def _extract_json(text: str) -> str:
     """Extract JSON from markdown code blocks or raw text."""
-    # Try fenced code block first
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
-    # Try raw JSON object/array
-    match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
-    if match:
-        return match.group(1).strip()
+    extracted = _extract_fenced_code(text)
+    if extracted:
+        return extracted
+    extracted = _extract_json_literal(text)
+    if extracted:
+        return extracted
     return text.strip()
 
 
@@ -285,7 +302,6 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 msg = "MiniMax returned an empty response, expected structured data"
                 raise HomeAssistantError(msg)  # noqa: TRY301
 
-            # Try parsing the raw text first
             data = None
             parse_errors = []
             candidates = [text, _extract_json(text)]
@@ -309,10 +325,11 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                     if attempt == len(candidates):
                         _LOGGER.error(
                             "AI task: Failed to parse JSON. Errors: %s. "
-                            "Full response (%d chars): %s",
+                            "Response length=%d, hash=%s, snippet=%s",
                             "; ".join(parse_errors),
                             len(text),
-                            text,
+                            hashlib.sha256(text.encode()).hexdigest(),
+                            text[:200],
                         )
 
             if data is None:

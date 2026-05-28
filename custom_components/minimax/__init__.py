@@ -38,6 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> b
             "401" in err_str
             or "authentication" in err_str.lower()
             or "api_key" in err_str.lower()
+            or "invalid api key" in err_str.lower()
         ):
             raise ConfigEntryAuthFailed("Invalid API key") from err
         raise ConfigEntryNotReady(f"Failed to connect to MiniMax API: {err}") from err

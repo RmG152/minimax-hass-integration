@@ -371,6 +371,7 @@ class TestLLMSubentryFlowHandler:
 
     async def test_conversation_schema_advanced(self, flow):
         """Test conversation subentry shows advanced fields when recommended is off."""
+        await flow.async_step_user(user_input=None)
         result = await flow.async_step_user(
             user_input={CONF_RECOMMENDED: False, "name": "Test"}
         )
@@ -409,6 +410,7 @@ class TestLLMSubentryFlowHandler:
         flow.handler = ("minimax", "tts")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
+        await flow.async_step_user(user_input=None)
         result = await flow.async_step_user(
             user_input={CONF_RECOMMENDED: False, "name": "Test"}
         )
@@ -464,6 +466,7 @@ class TestLLMSubentryFlowHandler:
         flow.handler = ("minimax", "ai_task_data")
         flow.context = {"source": "user", "entry_id": entry.entry_id}
 
+        await flow.async_step_user(user_input=None)
         result = await flow.async_step_user(
             user_input={CONF_RECOMMENDED: False, "name": "Test"}
         )

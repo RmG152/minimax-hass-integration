@@ -114,7 +114,7 @@
             "recommended": "Usar ajustes recomendados"
           },
           "data_description": {
-            "voice_id": "Introduce cualquier ID de voz (ej. English_PlayfulGirl o un ID numérico). La lista oficial de voces MiniMax está en platform.minimax.io/docs/faq/system-voice-id",
+            "voice_id": "Introduce cualquier ID de voz (ej. English_PlayfulGirl o un ID numérico). La lista oficial de voces MiniMax está en https://platform.minimax.io/docs/faq/system-voice-id",
             "language_boost": "Sugerencia de idioma opcional para mejorar la pronunciación (ej. Catalan, Spanish, Danish). Deja vacío para detección automática.",
             "speed": "Multiplicador de velocidad de habla (0.5 a 2.0)",
             "vol": "Nivel de volumen (0.0 a 2.0)",
