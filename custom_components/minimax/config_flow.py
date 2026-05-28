@@ -44,6 +44,7 @@ from .const import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_SPEED,
+    CONF_TTS_MODEL,
     CONF_VOICE_ID,
     CONF_VOL,
     DEFAULT_AI_TASK_NAME,
@@ -64,7 +65,9 @@ from .const import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
+    RECOMMENDED_TTS_MODEL,
     RECOMMENDED_TTS_OPTIONS,
+    TTS_MODELS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -322,6 +325,22 @@ def async_minimax_option_schema(
                     },
                 ): TextSelector(),
                 vol.Optional(
+                    CONF_TTS_MODEL,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL
+                        )
+                    },
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            SelectOptionDict(label=m["label"], value=m["value"])
+                            for m in TTS_MODELS
+                        ],
+                    )
+                ),
+                vol.Optional(
                     CONF_LANGUAGE_BOOST,
                     description={
                         "suggested_value": options.get(
@@ -420,7 +439,6 @@ def async_minimax_option_schema(
                 ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
             }
         )
-    elif subentry_type == "ai_task_data":
         default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {

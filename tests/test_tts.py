@@ -8,8 +8,10 @@ from custom_components.minimax import tts as minimax_tts
 from custom_components.minimax.const import (
     CONF_PITCH,
     CONF_SPEED,
+    CONF_TTS_MODEL,
     CONF_VOICE_ID,
     CONF_VOL,
+    RECOMMENDED_TTS_MODEL,
     RECOMMENDED_TTS_OPTIONS,
     VOICE_IDS,
 )
@@ -164,6 +166,31 @@ class TestMiniMaxTTSEntity:
         assert kwargs["speed"] == RECOMMENDED_TTS_OPTIONS[CONF_SPEED]
         assert kwargs["vol"] == RECOMMENDED_TTS_OPTIONS[CONF_VOL]
         assert kwargs["pitch"] == RECOMMENDED_TTS_OPTIONS[CONF_PITCH]
+        assert kwargs["model"] == RECOMMENDED_TTS_MODEL
+
+    @pytest.mark.asyncio
+    async def test_async_get_tts_audio_custom_model(self, mock_client):
+        """Test async_get_tts_audio uses custom tts_model from subentry."""
+
+        entry = _make_config_entry()
+        subentry_data = RECOMMENDED_TTS_OPTIONS.copy()
+        subentry_data[CONF_TTS_MODEL] = "speech-2.8-turbo"
+        subentry = _make_subentry(data=subentry_data)
+        entity = minimax_tts.MiniMaxTTSEntity(
+            config_entry=entry,
+            subentry=subentry,
+            client=mock_client,
+        )
+
+        await entity.async_get_tts_audio(
+            message="Hello",
+            language="en-US",
+            options={},
+        )
+
+        mock_client.async_tts.assert_called_once()
+        kwargs = mock_client.async_tts.call_args[1]
+        assert kwargs["model"] == "speech-2.8-turbo"
 
 
 class TestTTSSetup:

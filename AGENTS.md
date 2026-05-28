@@ -29,18 +29,24 @@ minimax-homeassistant-integration/
 
 ## Build/Lint/Test Commands
 
-This project has no dedicated test files or linting configuration. For Home Assistant custom integrations:
+**Always run before every commit:**
 
 ```bash
-# Verify Python syntax (run locally):
-python3 -m py_compile __init__.py const.py config_flow.py conversation.py stt.py tts.py
-
-# If you add tests, run them with:
-python -m pytest
-
-# For linting (if configured):
+# 1. Lint with ruff (fix all issues):
 python -m ruff check .
+
+# 2. Format with ruff:
 python -m ruff format .
+
+# 3. Don't Run all tests with coverage:
+# python -m pytest tests/ --cov --cov-branch --cov-report=xml
+```
+
+Additional commands:
+
+```bash
+# Verify Python syntax only:
+python3 -m py_compile __init__.py const.py config_flow.py conversation.py stt.py tts.py
 
 # For type checking:
 python -m mypy .
@@ -267,6 +273,11 @@ When adding tests:
 - Use `pytest` and `pytest-asyncio`
 - Mock httpx responses
 - Test config flow with `config_flow.TestFlows`
+- Run ruff lint and format
+<!-- , then run `python -m pytest tests/ --cov --cov-branch --cov-report=xml` before every commit -->
+- Aim for 100% patch coverage on new/modified lines
+- Use `pytest.approx()` for floating point comparisons to avoid SonarCloud warnings
+- Use `https://` URLs in test data to avoid SonarCloud security hotspots
 
 ## Common Issues and Solutions
 

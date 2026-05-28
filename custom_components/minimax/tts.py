@@ -18,6 +18,7 @@ from .const import (
     CONF_LANGUAGE_BOOST,
     CONF_PITCH,
     CONF_SPEED,
+    CONF_TTS_MODEL,
     CONF_VOICE_ID,
     CONF_VOL,
     DEFAULT_LANGUAGE_BOOST,
@@ -123,7 +124,7 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
                 speed=speed,
                 vol=vol,
                 pitch=int(pitch),
-                model=RECOMMENDED_TTS_MODEL,
+                model=self.subentry.data.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
                 language_boost=language_boost or None,
             )
         except Exception as err:  # noqa: BLE001
