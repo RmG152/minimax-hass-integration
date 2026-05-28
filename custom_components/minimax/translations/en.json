@@ -137,7 +137,11 @@
           "description": "Configure AI task settings for text and image generation.",
           "data": {
             "name": "Name",
+            "chat_model": "Model",
             "recommended": "Use Recommended Settings"
+          },
+          "data_description": {
+            "chat_model": "Select the AI model for AI tasks"
           }
         }
       }

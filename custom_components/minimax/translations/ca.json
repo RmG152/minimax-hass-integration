@@ -137,7 +137,11 @@
           "description": "Configura els ajustos de tasques d'IA per a generació de text i imatges.",
           "data": {
             "name": "Nom",
+            "chat_model": "Model",
             "recommended": "Utilitzar ajustos recomanats"
+          },
+          "data_description": {
+            "chat_model": "Selecciona el model d'IA per a les tasques d'IA"
           }
         }
       }

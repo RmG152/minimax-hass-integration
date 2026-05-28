@@ -57,6 +57,7 @@ from .const import (
     DEFAULT_TITLE,
     DEFAULT_VOL,
     DOMAIN,
+    LANGUAGE_NAMES,
     RECOMMENDED_AI_TASK_OPTIONS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
@@ -292,6 +293,73 @@ def async_minimax_option_schema(
         schema[vol.Required("name", default=default_name)] = str
 
     if subentry_type == "conversation":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_PROMPT,
+                    description={"suggested_value": options.get(CONF_PROMPT, "")},
+                ): TemplateSelector(),
+                vol.Optional(
+                    CONF_CONVERSATION_TTS_ENABLED,
+                    default=options.get(
+                        CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
+                    ),
+                ): BooleanSelector(),
+                vol.Optional(
+                    CONF_MEMORY_ENABLED,
+                    default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
+                ): BooleanSelector(),
+            }
+        )
+    elif subentry_type == "tts":
+        default_voice = options.get(CONF_VOICE_ID, "English_PlayfulGirl")
+
+        voice_options = []
+        for lang_code, voices in VOICE_IDS.items():
+            lang_name = LANGUAGE_NAMES.get(lang_code, lang_code)
+            for voice_id in voices:
+                voice_name = (
+                    voice_id.split("_", 1)[-1].replace("_", " ").replace("-", " ")
+                )
+                voice_options.append(
+                    SelectOptionDict(
+                        label=f"{lang_name} - {voice_name}", value=voice_id
+                    )
+                )
+
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_VOICE_ID,
+                    description={"suggested_value": default_voice},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=voice_options,
+                    )
+                ),
+            }
+        )
+    elif subentry_type == "stt":
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_PROMPT,
+                    description={"suggested_value": options.get(CONF_PROMPT, "")},
+                ): TemplateSelector(),
+            }
+        )
+    elif subentry_type == "ai_task_data":
+        pass
+
+    schema[
+        vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
+    ] = bool
+
+    if options.get(CONF_RECOMMENDED):
+        return schema
+
+    if subentry_type == "conversation":
         default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {
@@ -307,16 +375,6 @@ def async_minimax_option_schema(
                         ],
                     )
                 ),
-                vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
-                vol.Optional(
-                    CONF_CONVERSATION_TTS_ENABLED,
-                    default=options.get(
-                        CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
-                    ),
-                ): BooleanSelector(),
                 vol.Optional(
                     CONF_CONVERSATION_MAX_TOKENS,
                     default=options.get(
@@ -341,10 +399,6 @@ def async_minimax_option_schema(
                     )
                 ),
                 vol.Optional(
-                    CONF_MEMORY_ENABLED,
-                    default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
-                ): BooleanSelector(),
-                vol.Optional(
                     CONF_MEMORY_MAX_COUNT,
                     default=options.get(
                         CONF_MEMORY_MAX_COUNT, DEFAULT_MEMORY_MAX_COUNT
@@ -359,26 +413,8 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "tts":
-        default_voice = options.get(CONF_VOICE_ID, "English_PlayfulGirl")
-
-        voice_options = []
-        for voice_id in VOICE_IDS.get("en-US", []):
-            voice_name = voice_id.split("_", 2)[-1].replace("_", " ").replace("-", " ")
-            voice_options.append(
-                SelectOptionDict(label=f"English - {voice_name}", value=voice_id)
-            )
-
         schema.update(
             {
-                vol.Optional(
-                    CONF_VOICE_ID,
-                    description={"suggested_value": default_voice},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=voice_options,
-                    )
-                ),
                 vol.Optional(
                     CONF_SPEED,
                     default=options.get(CONF_SPEED, DEFAULT_SPEED),
@@ -393,17 +429,23 @@ def async_minimax_option_schema(
                 ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
             }
         )
-    elif subentry_type == "stt":
+    elif subentry_type == "ai_task_data":
+        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {
                 vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
+                    CONF_CHAT_MODEL,
+                    description={"suggested_value": default_model},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            SelectOptionDict(label=m["label"], value=m["value"])
+                            for m in CHAT_MODELS
+                        ],
+                    )
+                ),
             }
         )
-    schema[
-        vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
-    ] = bool
 
     return schema

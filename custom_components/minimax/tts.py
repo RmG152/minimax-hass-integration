@@ -52,6 +52,7 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
 
     _attr_supported_options = [ATTR_VOICE]
     _attr_supported_languages = list(VOICE_IDS.keys())
+    _attr_default_language = "en-US"
 
     def __init__(
         self,
@@ -65,7 +66,6 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         self._client = client
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
-        self._attr_default_language = "en-US"
 
     @property
     def default_options(self) -> dict[str, Any]:

@@ -137,7 +137,11 @@
           "description": "Configura los ajustes de tareas de IA para generación de texto e imágenes.",
           "data": {
             "name": "Nombre",
+            "chat_model": "Modelo",
             "recommended": "Usar ajustes recomendados"
+          },
+          "data_description": {
+            "chat_model": "Selecciona el modelo de IA para las tareas de IA"
           }
         }
       }
