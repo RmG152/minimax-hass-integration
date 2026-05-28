@@ -15,10 +15,12 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import MiniMaxApiClient
 from .const import (
+    CONF_LANGUAGE_BOOST,
     CONF_PITCH,
     CONF_SPEED,
     CONF_VOICE_ID,
     CONF_VOL,
+    DEFAULT_LANGUAGE_BOOST,
     DEFAULT_PITCH,
     DEFAULT_SPEED,
     DEFAULT_VOL,
@@ -52,6 +54,7 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
 
     _attr_supported_options = [ATTR_VOICE]
     _attr_supported_languages = list(VOICE_IDS.keys())
+    _attr_default_language = "en-US"
 
     def __init__(
         self,
@@ -65,7 +68,6 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         self._client = client
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
-        self._attr_default_language = "en-US"
 
     @property
     def default_options(self) -> dict[str, Any]:
@@ -102,12 +104,16 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         pitch = options.get(
             CONF_PITCH, self.subentry.data.get(CONF_PITCH, DEFAULT_PITCH)
         )
+        language_boost = self.subentry.data.get(
+            CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+        )
         _LOGGER.debug(
-            "TTS options: voice=%s, speed=%s, vol=%s, pitch=%s",
+            "TTS options: voice=%s, speed=%s, vol=%s, pitch=%s, language_boost=%s",
             voice_id,
             speed,
             vol,
             pitch,
+            language_boost,
         )
 
         try:
@@ -118,6 +124,7 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
                 vol=vol,
                 pitch=int(pitch),
                 model=RECOMMENDED_TTS_MODEL,
+                language_boost=language_boost or None,
             )
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Error during TTS: %s", err)

@@ -144,25 +144,25 @@ def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
                     if field_desc.get("required"):
                         required.append(field_name)
 
-            if "entity_id" not in properties:
-                properties["entity_id"] = {
-                    "type": "string",
-                    "description": "The entity ID to target (e.g., light.living_room)",
+                if "entity_id" not in properties:
+                    properties["entity_id"] = {
+                        "type": "string",
+                        "description": "The entity ID to target (e.g., light.living_room)",
+                    }
+
+                tool = {
+                    "name": tool_name,
+                    "description": description,
+                    "input_schema": {
+                        "type": "object",
+                        "properties": properties,
+                    },
                 }
 
-            tool = {
-                "name": tool_name,
-                "description": description,
-                "input_schema": {
-                    "type": "object",
-                    "properties": properties,
-                },
-            }
+                if required:
+                    tool["input_schema"]["required"] = required
 
-            if required:
-                tool["input_schema"]["required"] = required
-
-            tools.append(tool)
+                tools.append(tool)
 
     LOGGER.debug("Generated %d Home Assistant tools", len(tools))
     return tools

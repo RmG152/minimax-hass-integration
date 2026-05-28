@@ -203,6 +203,20 @@ class TestAsyncChat:
         assert result["success"] is False
         assert "error" in result
 
+    async def test_with_custom_timeout(self, api_client, mock_anthropic):
+        """Test chat request with custom timeout."""
+        mock_anthropic.messages.create = AsyncMock(
+            return_value=_make_chat_response([_make_text_block("ok")])
+        )
+        await api_client.async_chat(
+            model="MiniMax-M2.7",
+            messages=[],
+            system_prompt="",
+            timeout=15.0,
+        )
+        call_kwargs = mock_anthropic.messages.create.call_args[1]
+        assert call_kwargs["timeout"] == pytest.approx(15.0)
+
     async def test_empty_content(self, api_client, mock_anthropic):
         """Test empty content returns empty text."""
         mock_anthropic.messages.create = AsyncMock(return_value=_make_chat_response([]))
@@ -274,6 +288,27 @@ class TestAsyncTTS:
                 pitch=0,
                 model="speech-2.8-hd",
             )
+
+    async def test_with_language_boost(self, api_client, mock_session):
+        """Test TTS request with language_boost parameter."""
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json = AsyncMock(return_value={"data": {"audio": TTS_AUDIO_HEX}})
+        mock_session.post.return_value = mock_response
+
+        result = await api_client.async_tts(
+            text="Hello",
+            voice_id="English_PlayfulGirl",
+            speed=1.0,
+            vol=1.0,
+            pitch=0,
+            model="speech-2.8-hd",
+            language_boost="en",
+        )
+
+        assert result == bytes.fromhex(TTS_AUDIO_HEX)
+        call_json = mock_session.post.call_args[1]["json"]
+        assert call_json["language_boost"] == "en"
 
     async def test_empty_audio_data(self, api_client, mock_session):
         """Test TTS request with no audio data in response."""
@@ -426,6 +461,20 @@ class TestAsyncImageGeneration:
 
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_image_generation(prompt="A cat", model="image-01")
+
+    async def test_untrusted_url(self, api_client, mock_session):
+        """Test image generation with untrusted URL raises error."""
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json = AsyncMock(
+            return_value={"data": {"image_urls": ["https://evil.com/img.jpg"]}}
+        )
+        mock_session.post.return_value = mock_response
+
+        with pytest.raises(MiniMaxApiClientError, match="Untrusted image URL"):
+            await api_client.async_image_generation(
+                prompt="A cat", model="image-01", response_format="url"
+            )
 
     async def test_empty_response(self, api_client, mock_session):
         """Test image generation with empty data."""

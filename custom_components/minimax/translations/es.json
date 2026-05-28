@@ -107,13 +107,15 @@
           "data": {
             "name": "Nombre",
             "voice_id": "Voz",
+            "language_boost": "Impulso de idioma",
             "speed": "Velocidad",
             "vol": "Volumen",
             "pitch": "Tono",
             "recommended": "Usar ajustes recomendados"
           },
           "data_description": {
-            "voice_id": "Selecciona la voz para la salida de texto a voz",
+            "voice_id": "Introduce cualquier ID de voz (ej. English_PlayfulGirl o un ID numérico). La lista oficial de voces MiniMax está en https://platform.minimax.io/docs/faq/system-voice-id",
+            "language_boost": "Sugerencia de idioma opcional para mejorar la pronunciación (ej. Catalan, Spanish, Danish). Deja vacío para detección automática.",
             "speed": "Multiplicador de velocidad de habla (0.5 a 2.0)",
             "vol": "Nivel de volumen (0.0 a 2.0)",
             "pitch": "Ajuste del tono de voz (-10 a 10)"
@@ -137,7 +139,11 @@
           "description": "Configura los ajustes de tareas de IA para generación de texto e imágenes.",
           "data": {
             "name": "Nombre",
+            "chat_model": "Modelo",
             "recommended": "Usar ajustes recomendados"
+          },
+          "data_description": {
+            "chat_model": "Selecciona el modelo de IA para las tareas de IA"
           }
         }
       }

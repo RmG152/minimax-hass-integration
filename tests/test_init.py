@@ -4,7 +4,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.minimax import async_setup_entry, async_unload_entry
+from custom_components.minimax import (
+    async_migrate_entry,
+    async_setup,
+    async_setup_entry,
+    async_unload_entry,
+    async_update_options,
+)
+from custom_components.minimax.api import MiniMaxApiClientError
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
 
@@ -53,7 +60,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("401 Unauthorized")
+                side_effect=MiniMaxApiClientError("401 Unauthorized")
             )
             mock_client_class.return_value = mock_instance
 
@@ -69,7 +76,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("Timeout connecting to MiniMax API")
+                side_effect=MiniMaxApiClientError("Timeout connecting to MiniMax API")
             )
             mock_client_class.return_value = mock_instance
 
@@ -85,7 +92,7 @@ class TestAsyncSetupEntry:
         with patch("custom_components.minimax.MiniMaxApiClient") as mock_client_class:
             mock_instance = MagicMock()
             mock_instance.async_verify_connection = AsyncMock(
-                side_effect=Exception("authentication failed: bad key")
+                side_effect=MiniMaxApiClientError("authentication failed: bad key")
             )
             mock_client_class.return_value = mock_instance
 
@@ -140,3 +147,43 @@ class TestMiniMaxRuntimeData:
             await async_setup_entry(hass, config_entry)
 
         assert config_entry.runtime_data is mock_client
+
+
+class TestAsyncUpdateOptions:
+    """Test async_update_options."""
+
+    async def test_update_options_reloads_entry(self, hass):
+        """Test async_update_options triggers reload."""
+        from tests import create_mock_minimax_client, create_mock_minimax_config_entry
+
+        config_entry = create_mock_minimax_config_entry(hass)
+        mock_client = create_mock_minimax_client()
+
+        with patch(
+            "custom_components.minimax.MiniMaxApiClient", return_value=mock_client
+        ):
+            await async_setup_entry(hass, config_entry)
+
+        await async_update_options(hass, config_entry)
+        hass.config_entries.async_reload.assert_called_once_with(config_entry.entry_id)
+
+
+class TestAsyncSetup:
+    """Test async_setup."""
+
+    async def test_async_setup_returns_true(self, hass):
+        """Test async_setup returns True."""
+        result = await async_setup(hass, {})
+        assert result is True
+
+
+class TestAsyncMigrateEntry:
+    """Test async_migrate_entry."""
+
+    async def test_migrate_entry_returns_true(self, hass):
+        """Test async_migrate_entry returns True."""
+        from tests import create_mock_minimax_config_entry
+
+        config_entry = create_mock_minimax_config_entry(hass)
+        result = await async_migrate_entry(hass, config_entry)
+        assert result is True
