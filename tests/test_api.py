@@ -275,6 +275,27 @@ class TestAsyncTTS:
                 model="speech-2.8-hd",
             )
 
+    async def test_with_language_boost(self, api_client, mock_session):
+        """Test TTS request with language_boost parameter."""
+        mock_response = AsyncMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_response.json = AsyncMock(return_value={"data": {"audio": TTS_AUDIO_HEX}})
+        mock_session.post.return_value = mock_response
+
+        result = await api_client.async_tts(
+            text="Hello",
+            voice_id="English_PlayfulGirl",
+            speed=1.0,
+            vol=1.0,
+            pitch=0,
+            model="speech-2.8-hd",
+            language_boost="en",
+        )
+
+        assert result == bytes.fromhex(TTS_AUDIO_HEX)
+        call_json = mock_session.post.call_args[1]["json"]
+        assert call_json["language_boost"] == "en"
+
     async def test_empty_audio_data(self, api_client, mock_session):
         """Test TTS request with no audio data in response."""
         mock_response = AsyncMock()

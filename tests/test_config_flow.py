@@ -473,3 +473,20 @@ class TestLLMSubentryFlowHandler:
         assert result["type"] == FlowResultType.FORM
         schema_text = str(result["data_schema"])
         assert CONF_CHAT_MODEL in schema_text
+
+    async def test_subentry_flow_aborts_when_entry_not_loaded(self, hass):
+        """Test subentry flow aborts when entry is not loaded."""
+        from homeassistant.config_entries import ConfigEntryState
+        from tests import create_mock_minimax_config_entry
+
+        entry = create_mock_minimax_config_entry(hass)
+        entry.state = ConfigEntryState.SETUP_ERROR
+
+        flow = LLMSubentryFlowHandler()
+        flow.hass = hass
+        flow.handler = (entry.entry_id, "conversation")
+        flow.context = {"source": "user", "entry_id": entry.entry_id}
+
+        result = await flow.async_step_user(user_input=None)
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "entry_not_loaded"

@@ -492,6 +492,53 @@ class TestConversationCleanup:
         assert "c1" in entity._conversation_history
 
 
+class TestGetHomeAssistantTools:
+    """Test _get_homeassistant_tools function."""
+
+    def test_with_service_descriptions(self, hass):
+        """Test tool generation with service descriptions."""
+        hass.services.async_services.return_value = {
+            "light": {
+                "turn_on": {
+                    "description": "Turn on light",
+                    "fields": {
+                        "brightness": {
+                            "description": "Brightness level",
+                            "required": False,
+                            "example": 255,
+                        },
+                        "entity_id": {
+                            "description": "Target entity",
+                        },
+                    },
+                },
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 1
+        assert tools[0]["name"] == "light.turn_on"
+        assert "entity_id" in tools[0]["input_schema"]["properties"]
+
+    def test_with_private_service_skipped(self, hass):
+        """Test private services (starting with _) are skipped."""
+        hass.services.async_services.return_value = {
+            "light": {
+                "_private": {
+                    "description": "Private service",
+                    "fields": {},
+                },
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 0
+
+    def test_with_api_error_returns_empty(self, hass):
+        """Test that API errors return empty list."""
+        hass.services.async_services.side_effect = Exception("Service error")
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert tools == []
+
+
 class TestConversationSetup:
     """Test conversation platform setup."""
 

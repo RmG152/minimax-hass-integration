@@ -4,7 +4,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.minimax import async_setup_entry, async_unload_entry
+from custom_components.minimax import (
+    async_setup_entry,
+    async_unload_entry,
+    async_update_options,
+)
 from custom_components.minimax.api import MiniMaxApiClientError
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 
@@ -141,3 +145,22 @@ class TestMiniMaxRuntimeData:
             await async_setup_entry(hass, config_entry)
 
         assert config_entry.runtime_data is mock_client
+
+
+class TestAsyncUpdateOptions:
+    """Test async_update_options."""
+
+    async def test_update_options_reloads_entry(self, hass):
+        """Test async_update_options triggers reload."""
+        from tests import create_mock_minimax_client, create_mock_minimax_config_entry
+
+        config_entry = create_mock_minimax_config_entry(hass)
+        mock_client = create_mock_minimax_client()
+
+        with patch(
+            "custom_components.minimax.MiniMaxApiClient", return_value=mock_client
+        ):
+            await async_setup_entry(hass, config_entry)
+
+        await async_update_options(hass, config_entry)
+        hass.config_entries.async_reload.assert_called_once_with(config_entry.entry_id)
