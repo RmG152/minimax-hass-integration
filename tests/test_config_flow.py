@@ -102,8 +102,8 @@ class TestMiniMaxConfigFlow:
         assert result["type"] == FlowResultType.FORM
         assert result["errors"] == {"base": "invalid_auth"}
 
-    async def test_user_flow_cannot_connect(self, flow, hass):
-        """Test user config flow with connection error."""
+    async def test_user_flow_cannot_connect_raises(self, flow, hass):
+        """Test user config flow with connection error (exception raises)."""
         from custom_components.minimax.api import MiniMaxApiClientError
 
         with (
@@ -118,6 +118,26 @@ class TestMiniMaxConfigFlow:
             instance.async_verify_connection = AsyncMock(
                 side_effect=MiniMaxApiClientError("Connection refused")
             )
+            mock_client.return_value = instance
+            mock_session.return_value = MagicMock()
+
+            result = await flow.async_step_user(user_input={CONF_API_KEY: "test_key"})
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {"base": "cannot_connect"}
+
+    async def test_user_flow_cannot_connect_returns_false(self, flow, hass):
+        """Test user config flow when verify_connection returns False."""
+        with (
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
+        ):
+            instance = AsyncMock()
+            instance.async_verify_connection = AsyncMock(return_value=False)
             mock_client.return_value = instance
             mock_session.return_value = MagicMock()
 
@@ -490,3 +510,38 @@ class TestLLMSubentryFlowHandler:
         result = await flow.async_step_user(user_input=None)
         assert result["type"] == FlowResultType.ABORT
         assert result["reason"] == "entry_not_loaded"
+
+    async def test_subentry_flow_reconfigure(self, hass):
+        """Test subentry flow with reconfigure (existing subentry)."""
+        from tests import create_mock_minimax_config_entry
+
+        entry = create_mock_minimax_config_entry(hass)
+
+        flow = LLMSubentryFlowHandler()
+        flow.hass = hass
+        flow.handler = (entry.entry_id, "conversation")
+        flow.context = {"source": "reauth", "entry_id": entry.entry_id}
+
+        result = await flow.async_step_reconfigure(user_input=None)
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "set_options"
+        schema_text = str(result["data_schema"])
+        assert "name" not in schema_text
+
+    async def test_subentry_flow_creates_entry(self, hass):
+        """Test subentry flow creates entry when recommended flag matches."""
+        from tests import create_mock_minimax_config_entry
+
+        entry = create_mock_minimax_config_entry(hass)
+
+        flow = LLMSubentryFlowHandler()
+        flow.hass = hass
+        flow.handler = (entry.entry_id, "conversation")
+        flow.context = {"source": "user", "entry_id": entry.entry_id}
+
+        await flow.async_step_user(user_input=None)
+        result = await flow.async_step_user(
+            user_input={CONF_RECOMMENDED: True, "name": "My Agent"}
+        )
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        assert result["title"] == "My Agent"

@@ -277,6 +277,82 @@ class TestConversationHelpers:
         """Test _trim_conversation_history with empty list."""
         assert minimax_conversation._trim_conversation_history([], 1000) == []
 
+    @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
+    def test_build_system_prompt_with_exposed_entities(self, mock_get_exposed):
+        """Test _build_system_prompt with exposed entity data."""
+        mock_get_exposed.return_value = {
+            "entities": {
+                "light.living_room": {
+                    "name": "Living Room Light",
+                    "state": "on",
+                },
+            },
+        }
+        result = minimax_conversation._build_system_prompt(
+            "You are EVA.", self._hass_proxy(), "test_agent"
+        )
+        assert "You are EVA." in result
+        assert "Living Room Light" in result
+        assert "on" in result
+
+    @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
+    def test_build_system_prompt_with_all_states(self, mock_get_exposed):
+        """Test _build_system_prompt falls back to all states when no exposed entities."""
+        mock_get_exposed.return_value = {"entities": {}}
+        hass = self._hass_proxy()
+        mock_state = MagicMock()
+        mock_state.entity_id = "light.kitchen"
+        mock_state.name = "Kitchen Light"
+        mock_state.state = "off"
+        hass.states.async_all.return_value = [mock_state]
+        result = minimax_conversation._build_system_prompt(
+            "You are EVA.", hass, "test_agent"
+        )
+        assert "You are EVA." in result
+        assert "Kitchen Light" in result
+
+    @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
+    def test_build_system_prompt_skips_automation_and_scene(self, mock_get_exposed):
+        """Test _build_system_prompt skips automation and scene states."""
+        mock_get_exposed.return_value = {"entities": {}}
+        hass = self._hass_proxy()
+        mock_auto = MagicMock()
+        mock_auto.entity_id = "automation.night_mode"
+        mock_auto.name = "Night Mode"
+        mock_auto.state = "on"
+        mock_scene = MagicMock()
+        mock_scene.entity_id = "scene.movie"
+        mock_scene.name = "Movie Scene"
+        mock_scene.state = "scening"
+        mock_light = MagicMock()
+        mock_light.entity_id = "light.living_room"
+        mock_light.name = "Living Room"
+        mock_light.state = "on"
+        hass.states.async_all.return_value = [mock_auto, mock_scene, mock_light]
+        result = minimax_conversation._build_system_prompt(
+            "Prompt.", hass, "test_agent"
+        )
+        assert "automation.night_mode" not in result
+        assert "scene.movie" not in result
+        assert "light.living_room" in result
+
+    @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
+    def test_build_system_prompt_exception_returns_prompt(self, mock_get_exposed):
+        """Test _build_system_prompt returns prompt on exception."""
+        mock_get_exposed.side_effect = Exception("Boom")
+        result = minimax_conversation._build_system_prompt(
+            "You are EVA.", self._hass_proxy(), "test_agent"
+        )
+        assert result == "You are EVA."
+
+    def _hass_proxy(self):
+        """Create a minimal hass mock for _build_system_prompt tests."""
+        hass = MagicMock()
+        hass.states.async_all = MagicMock(return_value=[])
+        hass.services = MagicMock()
+        hass.services.async_services = MagicMock(return_value={})
+        return hass
+
 
 class TestConversationMemoryTools:
     """Test conversation memory tool execution."""
@@ -495,8 +571,8 @@ class TestConversationCleanup:
 class TestGetHomeAssistantTools:
     """Test _get_homeassistant_tools function."""
 
-    def test_with_service_descriptions(self, hass):
-        """Test tool generation with service descriptions."""
+    def test_with_required_field_and_entity_id_injection(self, hass):
+        """Test tool generation: required field, entity_id auto-inject."""
         hass.services.async_services.return_value = {
             "light": {
                 "turn_on": {
@@ -504,9 +580,28 @@ class TestGetHomeAssistantTools:
                     "fields": {
                         "brightness": {
                             "description": "Brightness level",
-                            "required": False,
+                            "required": True,
                             "example": 255,
                         },
+                    },
+                },
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 1
+        tool = tools[0]
+        assert tool["name"] == "light.turn_on"
+        assert tool["input_schema"]["required"] == ["brightness"]
+        assert tool["input_schema"]["properties"]["brightness"]["type"] == "int"
+        assert "entity_id" in tool["input_schema"]["properties"]
+
+    def test_with_entity_id_already_present(self, hass):
+        """Test tool generation when entity_id already in fields."""
+        hass.services.async_services.return_value = {
+            "light": {
+                "turn_on": {
+                    "description": "Turn on light",
+                    "fields": {
                         "entity_id": {
                             "description": "Target entity",
                         },
@@ -516,8 +611,20 @@ class TestGetHomeAssistantTools:
         }
         tools = minimax_conversation._get_homeassistant_tools(hass)
         assert len(tools) == 1
-        assert tools[0]["name"] == "light.turn_on"
         assert "entity_id" in tools[0]["input_schema"]["properties"]
+
+    def test_with_non_key_domain_skipped(self, hass):
+        """Test non-key domains are skipped in the first pass."""
+        hass.services.async_services.return_value = {
+            "sensor": {
+                "some_service": {
+                    "description": "A sensor service",
+                    "fields": {},
+                },
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 0
 
     def test_with_private_service_skipped(self, hass):
         """Test private services (starting with _) are skipped."""
@@ -537,6 +644,25 @@ class TestGetHomeAssistantTools:
         hass.services.async_services.side_effect = Exception("Service error")
         tools = minimax_conversation._get_homeassistant_tools(hass)
         assert tools == []
+
+    def test_with_field_having_schema(self, hass):
+        """Test field_type stays string when schema is set."""
+        hass.services.async_services.return_value = {
+            "light": {
+                "turn_on": {
+                    "description": "Turn on",
+                    "fields": {
+                        "target": {
+                            "description": "Target",
+                            "schema": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 1
+        assert tools[0]["input_schema"]["properties"]["target"]["type"] == "string"
 
 
 class TestConversationSetup:
