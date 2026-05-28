@@ -530,7 +530,11 @@ class TestLLMSubentryFlowHandler:
         flow = LLMSubentryFlowHandler()
         flow.hass = hass
         flow.handler = (entry.entry_id, "conv_001")
-        flow.context = {"source": SOURCE_RECONFIGURE, "entry_id": entry.entry_id}
+        flow.context = {
+            "source": SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+            "subentry_id": "conv_001",
+        }
 
         result = await flow.async_step_reconfigure(user_input=None)
         assert result["type"] == FlowResultType.FORM
