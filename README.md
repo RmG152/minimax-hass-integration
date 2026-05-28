@@ -11,6 +11,7 @@
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/custom-components/hacs)
 [![CI](https://github.com/RmG152/minimax-hass-integration/actions/workflows/ci.yaml/badge.svg)](https://github.com/RmG152/minimax-hass-integration/actions/workflows/ci.yaml)
 [![Build](https://img.shields.io/github/actions/workflow/status/RmG152/minimax-hass-integration/ci.yaml?branch=main)](https://github.com/RmG152/minimax-hass-integration/actions)
+[![codecov](https://codecov.io/gh/RmG152/minimax-hass-integration/graph/badge.svg?token=IM0FVT3Q7M)](https://codecov.io/gh/RmG152/minimax-hass-integration)
 [![Release](https://img.shields.io/github/v/release/RmG152/minimax-hass-integration)](https://github.com/RmG152/minimax-hass-integration/releases)
 [![License](https://img.shields.io/github/license/RmG152/minimax-hass-integration.svg?style=flat-square)](LICENSE)
 
