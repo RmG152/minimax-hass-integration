@@ -2,12 +2,16 @@
 
 import logging
 import re
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+
+import voluptuous as vol
+from voluptuous_openapi import convert
 
 from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
@@ -27,6 +31,95 @@ if TYPE_CHECKING:
 ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax."
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _schema_to_description(schema: vol.Schema) -> str:
+    """Convert a voluptuous schema to a human-readable JSON description."""
+    try:
+        openapi_schema = convert(
+            schema,
+            custom_serializer=llm.selector_serializer,
+        )
+    except Exception:  # noqa: BLE001
+        _LOGGER.warning(
+            "Could not convert schema to OpenAPI, using generic instruction"
+        )
+        return "Respond with ONLY a valid JSON object."
+
+    return _openapi_schema_to_text(openapi_schema)
+
+
+def _openapi_schema_to_text(schema: dict[str, Any], indent: int = 0) -> str:
+    """Recursively convert an OpenAPI schema dict to a text description."""
+    if not isinstance(schema, dict):
+        return str(schema)
+
+    lines: list[str] = []
+    prefix = "  " * indent
+
+    schema_type = schema.get("type", "object")
+
+    if schema_type == "object":
+        properties = schema.get("properties", {})
+        required = set(schema.get("required", []))
+
+        if indent == 0:
+            lines.append("{")
+
+        for key, prop in properties.items():
+            is_required = key in required
+            prop_type = prop.get("type", "any") if isinstance(prop, dict) else "any"
+            prop_desc = prop.get("description", "") if isinstance(prop, dict) else ""
+            prop_enum = prop.get("enum") if isinstance(prop, dict) else None
+
+            if prop_type == "object" and isinstance(prop, dict):
+                nested = _openapi_schema_to_text(prop, indent + 1)
+                line = f'{prefix}  "{key}": {nested}'
+            elif prop_type == "array" and isinstance(prop, dict):
+                items = prop.get("items", {})
+                item_type = (
+                    items.get("type", "any") if isinstance(items, dict) else "any"
+                )
+                line = f'{prefix}  "{key}": [<{item_type}>]'
+            else:
+                type_hint = prop_type
+                if prop_enum:
+                    type_hint = (
+                        f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
+                    )
+                line = f'{prefix}  "{key}": <{type_hint}>'
+
+            if prop_desc:
+                line += f" - {prop_desc}"
+            if is_required:
+                line += " (required)"
+
+            lines.append(line)
+
+        if indent == 0:
+            lines.append("}")
+
+    elif schema_type == "array":
+        items = schema.get("items", {})
+        if isinstance(items, dict) and items.get("type") == "object":
+            nested = _openapi_schema_to_text(items, indent)
+            lines.append(f"[{nested}]")
+        else:
+            item_type = items.get("type", "any") if isinstance(items, dict) else "any"
+            lines.append(f"[<array of {item_type}>]")
+    else:
+        desc = schema.get("description", "")
+        enum = schema.get("enum")
+        if enum:
+            type_hint = f"{schema_type} (one of: {', '.join(str(e) for e in enum)})"
+        else:
+            type_hint = schema_type
+        line = f"<{type_hint}>"
+        if desc:
+            line += f" - {desc}"
+        lines.append(line)
+
+    return "\n".join(lines)
 
 
 def _raise_parse_error() -> None:
@@ -129,17 +222,21 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 system_prompt = chat_log.content[0].content or ""
 
             if task.structure:
+                schema_description = _schema_to_description(task.structure)
                 json_instruction = (
-                    "\n\nCRITICAL: You must respond with ONLY a valid JSON object. "
+                    "\n\nCRITICAL: You must respond with ONLY a valid JSON object matching this exact schema. "
                     "Do not include any markdown formatting, explanations, or other text. "
-                    "Your entire response must be parseable as JSON."
+                    "Your entire response must be parseable as JSON. "
+                    "Do not add any fields that are not listed below, and do not omit any required fields.\n\n"
+                    f"{schema_description}"
                 )
                 if system_prompt:
                     system_prompt += json_instruction
                 else:
                     system_prompt = json_instruction.lstrip()
                 _LOGGER.debug(
-                    "AI task: added JSON-only instruction to system prompt"
+                    "AI task: added JSON schema instruction to system prompt, schema:\n%s",
+                    schema_description,
                 )
 
             _LOGGER.debug(
