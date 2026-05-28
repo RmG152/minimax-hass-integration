@@ -13,3 +13,4 @@ pytest-asyncio
 hassil
 home-assistant-intents
 mutagen
+httpx>=0.23.0 # not directly required, pinned by Snyk to avoid a vulnerability
