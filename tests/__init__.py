@@ -41,11 +41,7 @@ class MockConfigEntry:
         """Register update listener and return unsubscribe callable."""
         self._update_listeners = getattr(self, "_update_listeners", [])
         self._update_listeners.append(listener)
-
-        def _unlisten():
-            self._update_listeners.remove(listener)
-
-        return _unlisten
+        return lambda: self._update_listeners.remove(listener)
 
     def async_on_unload(self, callback) -> None:
         """Register callback for unload."""
