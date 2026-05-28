@@ -76,7 +76,9 @@ def _format_object_schema(schema: dict[str, Any], indent: int) -> str:
         else:
             type_hint = prop_type
             if prop_enum:
-                type_hint = f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
+                type_hint = (
+                    f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
+                )
             line = f'{prefix}  "{key}": <{type_hint}>'
 
         if prop_desc:
@@ -136,7 +138,7 @@ def _raise_parse_error() -> None:
 
 def _extract_fenced_code(text: str) -> str | None:
     """Extract content from a markdown fenced code block."""
-    match = re.search(r"```(?:json)?\s*(.*?)\s*```", text, re.DOTALL)
+    match = re.search(r"```(?:json)?(.*?)```", text, re.DOTALL)
     return match.group(1).strip() if match else None
 
 
