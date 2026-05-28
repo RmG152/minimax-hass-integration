@@ -118,9 +118,7 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 raise HomeAssistantError(msg)  # noqa: TRY301
 
             text = result.get("text", "")
-            text = re.sub(
-                r"<think>.*?</think>", "", text, flags=re.DOTALL
-            ).strip()
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
             chat_log.async_add_assistant_content_without_tools(
                 conversation.AssistantContent(
@@ -136,9 +134,8 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 )
 
             if not text:
-                raise HomeAssistantError(
-                    "MiniMax returned an empty response, expected structured data"
-                )
+                msg = "MiniMax returned an empty response, expected structured data"
+                raise HomeAssistantError(msg)  # noqa: TRY301
 
             try:
                 data = json_loads(text)
