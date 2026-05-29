@@ -10,6 +10,8 @@ from aiohttp import ClientSession
 import anthropic
 import httpx
 
+from homeassistant.util.ssl import client_context
+
 from .const import (
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
@@ -47,6 +49,7 @@ class MiniMaxApiClient:
             api_key=api_key,
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
+                verify=client_context(),
                 timeout=httpx.Timeout(AI_TASK_TIMEOUT),
             ),
         )
@@ -247,7 +250,8 @@ class MiniMaxApiClient:
                                 "Untrusted image URL"
                             )
                         async with httpx.AsyncClient(
-                            timeout=httpx.Timeout(IMAGE_FETCH_TIMEOUT)
+                            verify=client_context(),
+                            timeout=httpx.Timeout(IMAGE_FETCH_TIMEOUT),
                         ) as client:
                             img_resp = await client.get(url)
                             img_resp.raise_for_status()

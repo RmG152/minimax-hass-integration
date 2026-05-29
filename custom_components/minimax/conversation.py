@@ -41,22 +41,6 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_TOOL_CALLS = 10
 _CHARS_PER_TOKEN = 4
-MAX_TOOL_ARG_LOG_LENGTH = 100
-
-ALLOWED_SERVICE_DOMAINS = {
-    "homeassistant",
-    "light",
-    "switch",
-    "climate",
-    "fan",
-    "cover",
-    "lock",
-    "alarm_control_panel",
-    "media_player",
-    "input_boolean",
-    "automation",
-    "script",
-}
 
 
 def _get_exposed_entities(hass: HomeAssistant, assistant: str) -> dict[str, Any]:
@@ -77,7 +61,15 @@ def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -
             for entity_data in exposed["entities"].values():
                 entities_info += f"- {entity_data.get('name', entity_data.get('entity_id'))}: {entity_data.get('state', 'unknown')}\n"
         else:
-            entities_info = "\n\nNo exposed entities configured. Ask the user to expose devices in Home Assistant settings."
+            all_states = hass.states.async_all()
+            if all_states:
+                entities_info = "\n\nStatic Context - Your Home Assistant devices and their states:\n"
+                for state in sorted(all_states, key=lambda s: s.entity_id):
+                    if state.entity_id.startswith(
+                        "automation."
+                    ) or state.entity_id.startswith("scene."):
+                        continue
+                    entities_info += f"- {state.name}: {state.state}\n"
 
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get exposed entities: %s", err)
@@ -418,20 +410,7 @@ class MiniMaxConversationEntity(
                 )
                 continue
 
-            if domain not in ALLOWED_SERVICE_DOMAINS:
-                LOGGER.warning("Blocked tool call to disallowed domain: %s", domain)
-                results.append(
-                    {
-                        "type": "tool_result",
-                        "tool_use_id": tool_use_id,
-                        "content": f"Domain '{domain}' is not allowed",
-                    }
-                )
-                continue
-
-            _LOGGER.debug(
-                "Executing tool call: %s with args keys: %s", name, list(args.keys())
-            )
+            _LOGGER.debug("Executing tool call: %s with args: %s", name, args)
             result = await _call_service(self.hass, domain, service, args)
 
             results.append(
