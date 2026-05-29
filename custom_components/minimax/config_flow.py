@@ -371,26 +371,7 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "ai_task_data":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    description={
-                        "suggested_value": options.get(
-                            CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL
-                        )
-                    },
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label=m["label"], value=m["value"])
-                            for m in CHAT_MODELS
-                        ],
-                    )
-                ),
-            }
-        )
+        pass
 
     schema[
         vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
@@ -462,13 +443,31 @@ def async_minimax_option_schema(
                 vol.Optional(
                     CONF_VOL,
                     default=options.get(CONF_VOL, DEFAULT_VOL),
-                ): NumberSelector(NumberSelectorConfig(min=0.0, max=2.0, step=0.1)),
+                ): NumberSelector(NumberSelectorConfig(min=0.0, max=1.0, step=0.1)),
                 vol.Optional(
                     CONF_PITCH,
                     default=options.get(CONF_PITCH, DEFAULT_PITCH),
                 ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
             }
         )
+        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_CHAT_MODEL,
+                    description={"suggested_value": default_model},
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            SelectOptionDict(label=m["label"], value=m["value"])
+                            for m in CHAT_MODELS
+                        ],
+                    )
+                ),
+            }
+        )
+    elif subentry_type == "ai_task_data":
         default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
         schema.update(
             {

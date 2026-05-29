@@ -557,7 +557,7 @@ class MiniMaxConversationEntity(
                         )
                         text = "\n".join(text_parts) if text_parts else ""
                         if not text:
-                            text = "Jeg husker informationen, men der opstod en fejl ved bekræftelse."
+                            text = "I remember the information, but there was an error confirming it."
                         return text, messages
                     raise
 
