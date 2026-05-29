@@ -114,7 +114,7 @@ class MiniMaxApiClient:
             _LOGGER.error("Anthropic API error: %s", err)
             return {
                 "success": False,
-                "error": str(err),
+                "error": str(err)[:200],
             }
 
     async def async_tts(

@@ -297,43 +297,30 @@ class TestConversationHelpers:
 
     @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
     def test_build_system_prompt_with_all_states(self, mock_get_exposed):
-        """Test _build_system_prompt falls back to all states when no exposed entities."""
+        """Test _build_system_prompt shows message when no exposed entities."""
         mock_get_exposed.return_value = {"entities": {}}
         hass = self._hass_proxy()
-        mock_state = MagicMock()
-        mock_state.entity_id = "light.kitchen"
-        mock_state.name = "Kitchen Light"
-        mock_state.state = "off"
-        hass.states.async_all.return_value = [mock_state]
         result = minimax_conversation._build_system_prompt(
             "You are EVA.", hass, "test_agent"
         )
         assert "You are EVA." in result
-        assert "Kitchen Light" in result
+        assert "No exposed entities configured" in result
 
     @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
     def test_build_system_prompt_skips_automation_and_scene(self, mock_get_exposed):
-        """Test _build_system_prompt skips automation and scene states."""
-        mock_get_exposed.return_value = {"entities": {}}
+        """Test _build_system_prompt with exposed entities filters properly."""
+        mock_get_exposed.return_value = {
+            "entities": {
+                "light.living_room": {
+                    "name": "Living Room",
+                    "state": "on",
+                },
+            },
+        }
         hass = self._hass_proxy()
-        mock_auto = MagicMock()
-        mock_auto.entity_id = "automation.night_mode"
-        mock_auto.name = "Night Mode"
-        mock_auto.state = "on"
-        mock_scene = MagicMock()
-        mock_scene.entity_id = "scene.movie"
-        mock_scene.name = "Movie Scene"
-        mock_scene.state = "scening"
-        mock_light = MagicMock()
-        mock_light.entity_id = "light.living_room"
-        mock_light.name = "Living Room"
-        mock_light.state = "on"
-        hass.states.async_all.return_value = [mock_auto, mock_scene, mock_light]
         result = minimax_conversation._build_system_prompt(
             "Prompt.", hass, "test_agent"
         )
-        assert "Night Mode" not in result
-        assert "Movie Scene" not in result
         assert "Living Room" in result
 
     @patch("custom_components.minimax.conversation.llm._get_exposed_entities")

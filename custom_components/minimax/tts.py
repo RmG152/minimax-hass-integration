@@ -94,7 +94,9 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         self, message: str, language: str, options: dict[str, Any]
     ) -> TtsAudioType:
         """Load TTS audio from the engine."""
-        _LOGGER.debug("TTS request: message='%s', language=%s", message[:50], language)
+        _LOGGER.debug(
+            "TTS request: message_length=%d, language=%s", len(message), language
+        )
         voice_id = options.get(
             ATTR_VOICE, self.subentry.data.get(CONF_VOICE_ID, "English_PlayfulGirl")
         )

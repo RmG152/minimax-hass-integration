@@ -282,9 +282,8 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
             _LOGGER.debug(
-                "AI task: raw response length=%d, content=%s",
+                "AI task: raw response length=%d",
                 len(text),
-                text[:500] if text else "<empty>",
             )
 
             chat_log.async_add_assistant_content_without_tools(

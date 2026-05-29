@@ -1,15 +1,30 @@
 name: Update Voices on Release
 
 on:
+  workflow_dispatch:
   release:
     types: [published]
 
 jobs:
-  update-voices:
+  check-secret:
     runs-on: ubuntu-latest
-    # Skip the entire job if the API key is not configured
-    if: ${{ secrets.MINIMAX_API_KEY != '' }}
+    outputs:
+      has-key: ${{ steps.check.outputs.has-key }}
+    steps:
+      - id: check
+        env:
+          API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          if [ -n "$API_KEY" ]; then
+            echo "has-key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-key=false" >> "$GITHUB_OUTPUT"
+          fi
 
+  update-voices:
+    needs: check-secret
+    if: needs.check-secret.outputs.has-key == 'true'
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -27,7 +42,7 @@ jobs:
       - name: Update voices in const.py
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
-        run: python update_voices.py --api-key "$MINIMAX_API_KEY" --output update
+        run: python update_voices.py --output update
 
       - name: Check for changes
         id: check_changes

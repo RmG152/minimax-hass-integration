@@ -111,7 +111,13 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Handle the initial step."""
-        _LOGGER.debug("async_step_user called with input: %s", user_input)
+        if user_input:
+            safe_input = {
+                k: ("***" if k == CONF_API_KEY else v) for k, v in user_input.items()
+            }
+            _LOGGER.debug("async_step_user called with input: %s", safe_input)
+        else:
+            _LOGGER.debug("async_step_user called with no input")
         errors: dict[str, str] = {}
         if user_input is not None:
             self._async_abort_entries_match(user_input)
@@ -216,9 +222,9 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             return self.async_abort(reason="entry_not_loaded")
 
         _LOGGER.debug(
-            "async_step_set_options called for %s, input: %s",
+            "async_step_set_options called for %s, keys: %s",
             self._subentry_type,
-            user_input,
+            list(user_input.keys()) if user_input else None,
         )
         errors: dict[str, str] = {}
 
@@ -233,13 +239,18 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
                     options = RECOMMENDED_AI_TASK_OPTIONS.copy()
                 else:
                     options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
-                _LOGGER.debug("New subentry, using recommended options: %s", options)
+                _LOGGER.debug(
+                    "New subentry, using recommended options for: %s",
+                    self._subentry_type,
+                )
             else:
                 options = self._get_reconfigure_subentry().data.copy()
-                _LOGGER.debug("Existing subentry, current options: %s", options)
+                _LOGGER.debug(
+                    "Existing subentry, current options keys: %s", list(options.keys())
+                )
             self.last_rendered_recommended = bool(options.get(CONF_RECOMMENDED, False))
         else:
-            _LOGGER.debug("User provided input: %s", user_input)
+            _LOGGER.debug("User provided input keys: %s", list(user_input.keys()))
             if user_input.get(CONF_RECOMMENDED) == self.last_rendered_recommended:
                 if self._is_new:
                     _LOGGER.info("Creating new subentry: %s", self._subentry_type)

@@ -15,6 +15,7 @@ language prefix are listed under "Uncategorized" for manual placement.
 
 import argparse
 import asyncio
+import os
 from pathlib import Path
 import sys
 
@@ -165,7 +166,9 @@ def _update_const_py(voices):
 async def main() -> None:
     """Run the voice update script."""
     parser = argparse.ArgumentParser(description="Fetch and format MiniMax voices")
-    parser.add_argument("--api-key", required=True, help="MiniMax API key")
+    parser.add_argument(
+        "--api-key", help="MiniMax API key (or set MINIMAX_API_KEY env var)"
+    )
     parser.add_argument(
         "--output",
         choices=["const", "file", "update"],
@@ -176,8 +179,22 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    api_key = args.api_key or os.environ.get("MINIMAX_API_KEY")
+    if not api_key:
+        sys.stderr.write(
+            "Error: MINIMAX_API_KEY env var is required "
+            "(--api-key argument is deprecated, use env var instead)\n"
+        )
+        sys.exit(1)
+
+    if args.api_key:
+        sys.stderr.write(
+            "Warning: --api-key is deprecated and may expose credentials in process listings. "
+            "Use MINIMAX_API_KEY env var instead.\n"
+        )
+
     sys.stderr.write("Fetching voices from MiniMax API...\n")
-    voice_ids = await fetch_voices(args.api_key)
+    voice_ids = await fetch_voices(api_key)
     sys.stderr.write(f"Found {len(voice_ids)} system voices\n\n")
 
     if args.output == "update":

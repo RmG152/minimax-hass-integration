@@ -104,7 +104,7 @@ class MiniMaxSTTEntity(stt.SpeechToTextEntity):
                 prompt=prompt,
                 audio_format=metadata.format.value,
             )
-            _LOGGER.debug("STT result: %s", text)
+            _LOGGER.debug("STT result length: %d", len(text) if text else 0)
             if text:
                 return stt.SpeechResult(text, stt.SpeechResultState.SUCCESS)
 

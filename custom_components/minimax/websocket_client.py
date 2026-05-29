@@ -118,7 +118,7 @@ class MiniMaxWebSocketClient:
                         break
 
         except Exception:
-            _LOGGER.exception("Critical exception in client")
+            _LOGGER.exception("Critical exception in MiniMax WebSocket client")
             return None
 
         if not full_audio_bytes:
