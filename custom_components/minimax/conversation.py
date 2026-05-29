@@ -70,6 +70,8 @@ def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -
                     ) or state.entity_id.startswith("scene."):
                         continue
                     entities_info += f"- {state.name}: {state.state}\n"
+            else:
+                entities_info = "\n\nNo exposed entities configured.\n"
 
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get exposed entities: %s", err)

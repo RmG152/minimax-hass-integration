@@ -371,7 +371,26 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "ai_task_data":
-        pass
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_CHAT_MODEL,
+                    description={
+                        "suggested_value": options.get(
+                            CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL
+                        )
+                    },
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=[
+                            SelectOptionDict(label=m["label"], value=m["value"])
+                            for m in CHAT_MODELS
+                        ],
+                    )
+                ),
+            }
+        )
 
     schema[
         vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
