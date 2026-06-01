@@ -1,14 +1,20 @@
 """Text to speech support for MiniMax."""
 
-from collections.abc import Mapping
+import asyncio
+from collections.abc import AsyncGenerator, AsyncIterator, Mapping
+import contextlib
 import logging
+import re
 from typing import Any
 
 from propcache.api import cached_property
+from sentence_stream import SentenceBoundaryDetector
 
 from homeassistant.components.tts import (
     ATTR_VOICE,
     TextToSpeechEntity,
+    TTSAudioRequest,
+    TTSAudioResponse,
     TtsAudioType,
     Voice,
 )
@@ -21,17 +27,22 @@ from .const import (
     CONF_LANGUAGE_BOOST,
     CONF_PITCH,
     CONF_SPEED,
+    CONF_STREAMING_FORMAT,
     CONF_TTS_MODEL,
     CONF_VOL,
     DEFAULT_LANGUAGE_BOOST,
     DEFAULT_PITCH,
     DEFAULT_SPEED,
+    DEFAULT_STREAMING_FORMAT,
     DEFAULT_VOL,
     RECOMMENDED_TTS_MODEL,
     VOICE_IDS,
 )
+from .websocket_client import MiniMaxT2AWebSocketClient
 
 _LOGGER = logging.getLogger(__name__)
+
+_CJK_TERMINATORS = re.compile(r"(?<=[。！？\n])")
 
 
 async def async_setup_entry(
@@ -134,3 +145,92 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         else:
             _LOGGER.debug("TTS generated %d bytes of audio", len(audio_data))
             return ("mp3", audio_data)
+
+    async def async_stream_tts_audio(
+        self, request: TTSAudioRequest
+    ) -> TTSAudioResponse:
+        """Stream TTS audio via MiniMax WebSocket for streaming text input."""
+        return TTSAudioResponse(
+            self._resolve_streaming_format(request.options),
+            self._process_tts_stream(request),
+        )
+
+    def _resolve_streaming_format(self, options: Mapping[str, Any]) -> str:
+        """Pick the audio format. Option override first, then subentry data, then default."""
+        if options.get(CONF_STREAMING_FORMAT) is not None:
+            return options[CONF_STREAMING_FORMAT]
+        return self.subentry.data.get(CONF_STREAMING_FORMAT, DEFAULT_STREAMING_FORMAT)
+
+    async def _process_tts_stream(
+        self, request: TTSAudioRequest
+    ) -> AsyncGenerator[bytes]:
+        """Accumulate text into sentences, stream audio chunks per sentence."""
+        detector = SentenceBoundaryDetector()
+        sentences: asyncio.Queue[str | None] = asyncio.Queue()
+
+        async def feed_detector() -> None:
+            try:
+                async for chunk in request.message_gen:
+                    for sentence in detector.add_chunk(chunk):
+                        cleaned = self._postprocess_sentence(sentence)
+                        if cleaned:
+                            await sentences.put(cleaned)
+                tail = detector.finish()
+                if tail:
+                    cleaned = self._postprocess_sentence(tail)
+                    if cleaned:
+                        await sentences.put(cleaned)
+            finally:
+                await sentences.put(None)
+
+        feed_task = asyncio.create_task(
+            feed_detector(), name="minimax_tts_feed_detector"
+        )
+
+        async def sentence_iter() -> AsyncIterator[str]:
+            while True:
+                sentence = await sentences.get()
+                if sentence is None:
+                    return
+                yield sentence
+
+        subentry_data = self.subentry.data
+        ws_client = MiniMaxT2AWebSocketClient(
+            hass=self.hass,
+            api_key=self._client.api_key,
+            model=subentry_data.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
+            voice_id=request.options[ATTR_VOICE],
+            language_boost=subentry_data.get(
+                CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+            )
+            or None,
+            speed=float(subentry_data.get(CONF_SPEED, DEFAULT_SPEED)),
+            vol=float(subentry_data.get(CONF_VOL, DEFAULT_VOL)),
+            pitch=int(subentry_data.get(CONF_PITCH, DEFAULT_PITCH)),
+            audio_format=self._resolve_streaming_format(request.options),
+        )
+
+        try:
+            async for audio_chunk in ws_client.stream(sentence_iter()):
+                yield audio_chunk
+        finally:
+            if not feed_task.done():
+                feed_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await feed_task
+
+    @staticmethod
+    def _postprocess_sentence(sentence: str) -> str:
+        """Re-split sentences on fullwidth CJK terminators.
+
+        ``sentence_stream.SentenceBoundaryDetector`` only knows about Latin
+        punctuation. Chinese/Japanese sentences ending in 。！？ arrive as
+        one chunk (no preceding ASCII punctuation), so we re-split here to
+        give CJK users per-sentence streaming latency.
+        """
+        if "。" in sentence or "！" in sentence or "？" in sentence:
+            parts = _CJK_TERMINATORS.split(sentence)
+            cleaned = [p.strip() for p in parts if p.strip()]
+            if len(cleaned) > 1:
+                return " ".join(cleaned)
+        return sentence.strip()

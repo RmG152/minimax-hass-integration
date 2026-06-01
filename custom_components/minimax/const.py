@@ -3,6 +3,7 @@
 import logging
 
 from homeassistant.const import Platform
+from homeassistant.helpers.selector import SelectOptionDict
 
 DOMAIN = "minimax"
 LOGGER = logging.getLogger(__package__)
@@ -45,6 +46,14 @@ TTS_MODELS = [
     {"label": "speech-02-turbo (Fast)", "value": "speech-02-turbo"},
     {"label": "speech-01-hd", "value": "speech-01-hd"},
     {"label": "speech-01-turbo (Fast)", "value": "speech-01-turbo"},
+]
+
+CONF_STREAMING_FORMAT = "streaming_format"
+DEFAULT_STREAMING_FORMAT = "mp3"
+STREAMING_FORMATS = [
+    SelectOptionDict(label="MP3 (Recommended)", value="mp3"),
+    SelectOptionDict(label="PCM (raw 16-bit)", value="pcm"),
+    SelectOptionDict(label="Opus (Ogg container)", value="opus"),
 ]
 RECOMMENDED_IMAGE_MODEL = "image-01"
 RECOMMENDED_AI_TASK_MAX_TOKENS = 16000
@@ -564,6 +573,7 @@ RECOMMENDED_TTS_OPTIONS = {
     CONF_SPEED: DEFAULT_SPEED,
     CONF_VOL: DEFAULT_VOL,
     CONF_PITCH: DEFAULT_PITCH,
+    CONF_STREAMING_FORMAT: DEFAULT_STREAMING_FORMAT,
 }
 
 RECOMMENDED_STT_OPTIONS = {

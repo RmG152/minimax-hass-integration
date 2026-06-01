@@ -54,6 +54,11 @@ class MiniMaxApiClient:
             ),
         )
 
+    @property
+    def api_key(self) -> str:
+        """Return the API key (used by the WebSocket TTS client)."""
+        return self._api_key
+
     async def async_chat(
         self,
         model: str,

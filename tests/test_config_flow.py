@@ -18,6 +18,7 @@ from custom_components.minimax.config_flow import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_SPEED,
+    CONF_STREAMING_FORMAT,
     CONF_VOL,
     LLMSubentryFlowHandler,
     MiniMaxConfigFlow,
@@ -244,6 +245,7 @@ class TestAsyncMinimaxOptionSchema:
         assert "chat_model" not in key_names
         assert CONF_RECOMMENDED in key_names
         assert CONF_SPEED not in key_names
+        assert CONF_STREAMING_FORMAT not in key_names
 
     def test_tts_schema_advanced_fields(self):
         """Test TTS schema contains advanced fields when not recommended."""
@@ -266,6 +268,7 @@ class TestAsyncMinimaxOptionSchema:
         assert CONF_SPEED in key_names
         assert CONF_VOL in key_names
         assert CONF_PITCH in key_names
+        assert CONF_STREAMING_FORMAT in key_names
 
     def test_stt_schema_includes_all_fields(self):
         """Test STT schema contains expected fields."""
@@ -420,6 +423,7 @@ class TestLLMSubentryFlowHandler:
         assert "voice_id" not in schema_text
         assert "chat_model" not in schema_text
         assert CONF_SPEED not in schema_text
+        assert CONF_STREAMING_FORMAT not in schema_text
 
     async def test_tts_schema_advanced(self, hass):
         """Test TTS subentry shows advanced fields when recommended is off."""
@@ -441,6 +445,7 @@ class TestLLMSubentryFlowHandler:
         assert CONF_SPEED in schema_text
         assert CONF_VOL in schema_text
         assert CONF_PITCH in schema_text
+        assert CONF_STREAMING_FORMAT in schema_text
 
     async def test_stt_schema(self, hass):
         """Test STT subentry schema has expected fields."""

@@ -44,6 +44,7 @@ from .const import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_SPEED,
+    CONF_STREAMING_FORMAT,
     CONF_TTS_MODEL,
     CONF_VOL,
     DEFAULT_AI_TASK_NAME,
@@ -57,6 +58,7 @@ from .const import (
     DEFAULT_MEMORY_MAX_COUNT,
     DEFAULT_PITCH,
     DEFAULT_SPEED,
+    DEFAULT_STREAMING_FORMAT,
     DEFAULT_TITLE,
     DEFAULT_VOL,
     DOMAIN,
@@ -66,6 +68,7 @@ from .const import (
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_MODEL,
     RECOMMENDED_TTS_OPTIONS,
+    STREAMING_FORMATS,
     TTS_MODELS,
 )
 
@@ -427,6 +430,17 @@ def async_minimax_option_schema(
     elif subentry_type == "tts":
         schema.update(
             {
+                vol.Optional(
+                    CONF_STREAMING_FORMAT,
+                    default=options.get(
+                        CONF_STREAMING_FORMAT, DEFAULT_STREAMING_FORMAT
+                    ),
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        mode=SelectSelectorMode.DROPDOWN,
+                        options=STREAMING_FORMATS,
+                    )
+                ),
                 vol.Optional(
                     CONF_SPEED,
                     default=options.get(CONF_SPEED, DEFAULT_SPEED),

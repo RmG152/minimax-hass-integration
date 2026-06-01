@@ -111,6 +111,7 @@
             "speed": "Velocidad",
             "vol": "Volumen",
             "pitch": "Tono",
+            "streaming_format": "Formato de audio en streaming",
             "recommended": "Usar ajustes recomendados"
           },
           "data_description": {
@@ -118,7 +119,8 @@
             "language_boost": "Sugerencia de idioma opcional para mejorar la pronunciación (ej. Catalan, Spanish, Danish). Deja vacío para detección automática.",
             "speed": "Multiplicador de velocidad de habla (0.5 a 2.0)",
             "vol": "Nivel de volumen (0.0 a 1.0)",
-            "pitch": "Ajuste del tono de voz (-10 a 10)"
+            "pitch": "Ajuste del tono de voz (-10 a 10)",
+            "streaming_format": "Formato de audio usado al transmitir la respuesta del asistente. MP3 es ampliamente compatible; PCM es de latencia mínima pero en bruto; Opus es compacto e ideal para satélites de voz."
           }
         }
       }
