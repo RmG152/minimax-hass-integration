@@ -13,6 +13,7 @@ import httpx
 from homeassistant.util.ssl import client_context
 
 from .const import (
+    ANTHROPIC_CHAT_TIMEOUT,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
@@ -24,7 +25,6 @@ TTS_TIMEOUT = 60
 STT_TIMEOUT = 60
 IMAGE_TIMEOUT = 120
 IMAGE_FETCH_TIMEOUT = 30
-AI_TASK_TIMEOUT = 120
 MINIMAX_DOMAINS = ["api.minimax.io", "cdn.minimax.io", "minimax.io"]
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,7 +50,7 @@ class MiniMaxApiClient:
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
                 verify=client_context(),
-                timeout=httpx.Timeout(AI_TASK_TIMEOUT),
+                timeout=httpx.Timeout(ANTHROPIC_CHAT_TIMEOUT),
             ),
         )
 

@@ -38,9 +38,11 @@ python -m ruff check .
 # 2. Format with ruff:
 python -m ruff format .
 
-# 3. Don't Run all tests with coverage:
-# python -m pytest tests/ --cov --cov-branch --cov-report=xml
+# 3. Run tests with coverage:
+python -m pytest tests/ --cov --cov-branch --cov-report=xml
 ```
+
+Aim for 100% patch coverage on new/modified lines.
 
 Additional commands:
 
@@ -344,7 +346,7 @@ When adding tests:
 - Run ruff lint and format
 <!-- , then run `python -m pytest tests/ --cov --cov-branch --cov-report=xml` before every commit -->
 - Aim for 100% patch coverage on new/modified lines
-- Use `pytest.approx()` for floating point comparisons to avoid SonarCloud warnings
+- Use `pytest.approx()` for floating-point comparisons to avoid SonarCloud warnings
 - Use `https://` URLs in test data to avoid SonarCloud security hotspots
 
 ## Common Issues and Solutions

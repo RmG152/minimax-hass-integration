@@ -100,7 +100,10 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
         speed = options.get(
             CONF_SPEED, self.subentry.data.get(CONF_SPEED, DEFAULT_SPEED)
         )
-        vol = options.get(CONF_VOL, self.subentry.data.get(CONF_VOL, DEFAULT_VOL))
+        vol = min(
+            float(options.get(CONF_VOL, self.subentry.data.get(CONF_VOL, DEFAULT_VOL))),
+            1.0,
+        )
         pitch = options.get(
             CONF_PITCH, self.subentry.data.get(CONF_PITCH, DEFAULT_PITCH)
         )
@@ -202,13 +205,13 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
             hass=self.hass,
             api_key=self._client.api_key,
             model=subentry_data.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
-            voice_id=request.options[ATTR_VOICE],
+            voice_id=request.options.get(ATTR_VOICE, self.default_options[ATTR_VOICE]),
             language_boost=subentry_data.get(
                 CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
             )
             or None,
             speed=float(subentry_data.get(CONF_SPEED, DEFAULT_SPEED)),
-            vol=float(subentry_data.get(CONF_VOL, DEFAULT_VOL)),
+            vol=min(float(subentry_data.get(CONF_VOL, DEFAULT_VOL)), 1.0),
             pitch=int(subentry_data.get(CONF_PITCH, DEFAULT_PITCH)),
             audio_format=self._resolve_streaming_format(request.options),
         )

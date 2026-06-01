@@ -966,7 +966,7 @@ class TestConversationEntityExtra:
                 [],
                 "model",
             )
-        assert "I remember the information" in text
+        assert "trouble answering" in text
 
     @pytest.mark.asyncio
     async def test_chat_with_api_text_only_with_tool_use(self, entity, mock_client):

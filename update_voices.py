@@ -124,20 +124,42 @@ def _format_voice_ids(voices: list[str], indent: int = 4) -> str:
 async def fetch_voices(api_key: str) -> list[str]:
     """Fetch system voice IDs from the MiniMax API."""
 
-    async with httpx.AsyncClient(timeout=30) as client:
-        response = await client.post(
-            GET_VOICE_API,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={"voice_type": "system"},
-        )
-        response.raise_for_status()
-        data = response.json()
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            response = await client.post(
+                GET_VOICE_API,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={"voice_type": "system"},
+            )
+            response.raise_for_status()
+            data = response.json()
+    except (httpx.RequestError, httpx.HTTPStatusError) as err:
+        sys.stderr.write(f"MiniMax API request failed: {err}\n")
+        sys.exit(1)
+    except (ValueError, TypeError) as err:
+        sys.stderr.write(f"MiniMax API returned invalid JSON: {err}\n")
+        sys.exit(1)
 
-    voices = data.get("system_voice", [])
-    return [v["voice_id"] for v in voices]
+    if not isinstance(data, dict):
+        sys.stderr.write("MiniMax API response is not a JSON object\n")
+        sys.exit(1)
+
+    raw_voices = data.get("system_voice")
+    if not isinstance(raw_voices, list):
+        sys.stderr.write("MiniMax API response missing 'system_voice' list\n")
+        sys.exit(1)
+
+    voices: list[str] = []
+    for entry in raw_voices:
+        if not isinstance(entry, dict):
+            continue
+        voice_id = entry.get("voice_id")
+        if isinstance(voice_id, str):
+            voices.append(voice_id)
+    return voices
 
 
 def _sanitize_voices(voices: list[str]) -> list[str]:

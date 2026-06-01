@@ -46,6 +46,7 @@ try {
 
     $stubPath = Join-Path $userSite "sitecustomize.py"
     $stub = @'
+# BEGIN TEST STUB
 """Windows stub: provide dummy fcntl/resource/pwd/grp modules for tests."""
 import sys
 import types
@@ -78,10 +79,22 @@ def _install(name):
 
 for _name in ("fcntl", "resource", "pwd", "grp"):
     _install(_name)
+# END TEST STUB
 '@
 
-    Set-Content -LiteralPath $stubPath -Value $stub -Encoding UTF8
-    Write-Host "Wrote sitecustomize.py stub to $stubPath" -ForegroundColor DarkGray
+    $sentinel = "# BEGIN TEST STUB"
+    if (Test-Path -LiteralPath $stubPath) {
+        $existing = Get-Content -LiteralPath $stubPath -Raw
+        if ($existing -match [regex]::Escape($sentinel)) {
+            Write-Host "sitecustomize.py stub already installed at $stubPath" -ForegroundColor DarkGray
+        } else {
+            Add-Content -LiteralPath $stubPath -Value "`n$stub" -Encoding UTF8
+            Write-Host "Appended sitecustomize.py stub to $stubPath" -ForegroundColor DarkGray
+        }
+    } else {
+        Set-Content -LiteralPath $stubPath -Value $stub -Encoding UTF8
+        Write-Host "Wrote sitecustomize.py stub to $stubPath" -ForegroundColor DarkGray
+    }
 
     $env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1"
 

@@ -116,6 +116,8 @@ class MemoryStore:
             fact = fact[:MAX_FACT_LENGTH]
 
         fact = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", fact)
+        if not fact:
+            raise ValueError("Fact cannot be empty after sanitization")
 
         memory_id = str(uuid.uuid4())
         now = time.time()

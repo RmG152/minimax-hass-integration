@@ -38,14 +38,14 @@ RECOMMENDED_STT_MODEL = "MiniMax-M2.7"
 CONF_TTS_MODEL = "tts_model"
 
 TTS_MODELS = [
-    {"label": "speech-2.8-hd (Recommended)", "value": "speech-2.8-hd"},
-    {"label": "speech-2.8-turbo (Fast)", "value": "speech-2.8-turbo"},
-    {"label": "speech-2.6-hd", "value": "speech-2.6-hd"},
-    {"label": "speech-2.6-turbo (Fast)", "value": "speech-2.6-turbo"},
-    {"label": "speech-02-hd", "value": "speech-02-hd"},
-    {"label": "speech-02-turbo (Fast)", "value": "speech-02-turbo"},
-    {"label": "speech-01-hd", "value": "speech-01-hd"},
-    {"label": "speech-01-turbo (Fast)", "value": "speech-01-turbo"},
+    SelectOptionDict(label="speech-2.8-hd (Recommended)", value="speech-2.8-hd"),
+    SelectOptionDict(label="speech-2.8-turbo (Fast)", value="speech-2.8-turbo"),
+    SelectOptionDict(label="speech-2.6-hd", value="speech-2.6-hd"),
+    SelectOptionDict(label="speech-2.6-turbo (Fast)", value="speech-2.6-turbo"),
+    SelectOptionDict(label="speech-02-hd", value="speech-02-hd"),
+    SelectOptionDict(label="speech-02-turbo (Fast)", value="speech-02-turbo"),
+    SelectOptionDict(label="speech-01-hd", value="speech-01-hd"),
+    SelectOptionDict(label="speech-01-turbo (Fast)", value="speech-01-turbo"),
 ]
 
 CONF_STREAMING_FORMAT = "streaming_format"
@@ -57,7 +57,7 @@ STREAMING_FORMATS = [
 ]
 RECOMMENDED_IMAGE_MODEL = "image-01"
 RECOMMENDED_AI_TASK_MAX_TOKENS = 16000
-AI_TASK_TIMEOUT = 120
+ANTHROPIC_CHAT_TIMEOUT = 30
 
 CHAT_MODELS = [
     {"label": "MiniMax-M2.7 (Recommended)", "value": "MiniMax-M2.7"},

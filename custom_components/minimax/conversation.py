@@ -42,6 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 
 MAX_TOOL_CALLS = 10
 _CHARS_PER_TOKEN = 4
+FALLBACK_RESPONSE = "Sorry, I had trouble answering that."
 
 
 def _get_exposed_entities(hass: HomeAssistant, assistant: str) -> dict[str, Any]:
@@ -555,7 +556,7 @@ class MiniMaxConversationEntity(
                         )
                         text = "\n".join(text_parts) if text_parts else ""
                         if not text:
-                            text = "I remember the information, but there was an error confirming it."
+                            text = FALLBACK_RESPONSE
                         return text, messages
                     raise
 
@@ -665,7 +666,7 @@ class MiniMaxConversationEntity(
             self._conversation_history[conversation_id] = (new_history, time.time())
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Conversation error: %s", err)
-            response_text = "Sorry, I had trouble answering that."
+            response_text = FALLBACK_RESPONSE
 
         response_text = re.sub(
             r"<think>.*?</think>",
@@ -676,7 +677,7 @@ class MiniMaxConversationEntity(
         response_text = response_text.strip()
 
         if not response_text:
-            response_text = "Beklager, jeg kunne ikke få svar."
+            response_text = FALLBACK_RESPONSE
 
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(response_text)
