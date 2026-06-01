@@ -58,6 +58,18 @@ class MiniMaxT2AWebSocketClient:
 
         Cancellation-safe: always sends task_finish and closes the socket.
         """
+        _LOGGER.debug(
+            "MiniMax TTS WS open: model=%s voice=%s format=%s sample_rate=%d "
+            "speed=%.2f vol=%.2f pitch=%d language_boost=%s",
+            self._model,
+            self._voice_id,
+            self._audio_format,
+            self._sample_rate,
+            self._speed,
+            self._vol,
+            self._pitch,
+            self._language_boost,
+        )
         session = async_get_clientsession(self._hass)
         headers = {
             "Authorization": f"Bearer {self._api_key}",
@@ -73,26 +85,50 @@ class MiniMaxT2AWebSocketClient:
 
             await self._expect_event(ws, self._EVENT_CONNECTED_SUCCESS, "connect")
 
-            await ws.send_json(self._build_start_payload())
+            start_payload = self._build_start_payload()
+            _LOGGER.debug("MiniMax TTS WS -> task_start: %s", start_payload)
+            await ws.send_json(start_payload)
             await self._expect_event(ws, self._EVENT_TASK_STARTED, "task_start")
 
             read_task = asyncio.create_task(
                 self._read_loop(ws, queue), name="minimax_t2a_ws_read"
             )
 
+            sent_chunks = 0
             async for text_chunk in text_chunks:
                 if not text_chunk:
                     continue
+                sent_chunks += 1
+                _LOGGER.debug(
+                    "MiniMax TTS WS -> task_continue #%d: %r",
+                    sent_chunks,
+                    text_chunk,
+                )
                 await ws.send_json({"event": "task_continue", "text": text_chunk})
 
+            _LOGGER.debug(
+                "MiniMax TTS WS: text exhausted after %d chunk(s), sending task_finish",
+                sent_chunks,
+            )
             with contextlib.suppress(ConnectionResetError, ClientError, RuntimeError):
                 await ws.send_json({"event": "task_finish"})
 
+            total_bytes = 0
+            chunk_count = 0
             while True:
                 chunk = await queue.get()
                 if chunk is None:
                     break
+                chunk_count += 1
+                total_bytes += len(chunk)
                 yield chunk
+
+            _LOGGER.debug(
+                "MiniMax TTS WS done: %d audio chunk(s), %d byte(s) total (format=%s)",
+                chunk_count,
+                total_bytes,
+                self._audio_format,
+            )
 
         except ClientError as err:
             raise HomeAssistantError(f"MiniMax TTS WebSocket error: {err}") from err
@@ -103,6 +139,7 @@ class MiniMaxT2AWebSocketClient:
                 with contextlib.suppress(asyncio.CancelledError):
                     await read_task
             if ws is not None and not ws.closed:
+                _LOGGER.debug("MiniMax TTS WS close")
                 with contextlib.suppress(Exception):
                     await ws.close()
 
@@ -138,18 +175,24 @@ class MiniMaxT2AWebSocketClient:
             try:
                 data = json.loads(msg.data)
             except (TypeError, ValueError) as err:
+                _LOGGER.debug(
+                    "MiniMax TTS WS %s: invalid JSON in msg: %r", phase, msg.data
+                )
                 raise HomeAssistantError(
                     f"MiniMax TTS WebSocket returned invalid JSON during {phase}: {err}"
                 ) from err
         elif msg.type in (WSMsgType.CLOSE, WSMsgType.CLOSED, WSMsgType.CLOSING):
+            _LOGGER.debug("MiniMax TTS WS %s: socket closed (%s)", phase, msg.type)
             raise HomeAssistantError(
                 f"MiniMax TTS WebSocket closed unexpectedly during {phase}"
             )
         else:
+            _LOGGER.debug("MiniMax TTS WS %s: unexpected msg type %s", phase, msg.type)
             raise HomeAssistantError(
                 f"MiniMax TTS WebSocket returned {msg.type} during {phase}"
             )
 
+        _LOGGER.debug("MiniMax TTS WS %s: received %s", phase, data.get("event"))
         event = data.get("event")
         if event == self._EVENT_TASK_ERROR:
             raise HomeAssistantError(
@@ -166,27 +209,52 @@ class MiniMaxT2AWebSocketClient:
         queue: asyncio.Queue[bytes | None],
     ) -> None:
         """Background task: read WS messages and push audio to the queue."""
+        audio_chunks = 0
+        audio_bytes = 0
         try:
             async for msg in ws:
                 if msg.type != WSMsgType.TEXT:
+                    _LOGGER.debug("MiniMax TTS WS read: non-text msg type=%s", msg.type)
                     break
                 try:
                     data = json.loads(msg.data)
                 except (TypeError, ValueError):
+                    _LOGGER.debug(
+                        "MiniMax TTS WS read: skipping invalid JSON: %r", msg.data
+                    )
                     continue
                 if data.get("event") == self._EVENT_TASK_ERROR:
                     _LOGGER.error("MiniMax TTS task_error: %s", data)
                     break
                 audio_hex = (data.get("data") or {}).get("audio")
                 if audio_hex:
-                    with contextlib.suppress(ValueError, TypeError):
-                        await queue.put(bytes.fromhex(audio_hex))
+                    try:
+                        audio_bytes_block = bytes.fromhex(audio_hex)
+                    except (ValueError, TypeError):
+                        _LOGGER.debug(
+                            "MiniMax TTS WS read: bad audio hex (len=%d)",
+                            len(audio_hex),
+                        )
+                    else:
+                        audio_chunks += 1
+                        audio_bytes += len(audio_bytes_block)
+                        await queue.put(audio_bytes_block)
                 if (
                     data.get("is_final")
                     or data.get("event") == self._EVENT_TASK_FINISHED
                 ):
+                    _LOGGER.debug(
+                        "MiniMax TTS WS read: stream end (event=%s is_final=%s)",
+                        data.get("event"),
+                        data.get("is_final"),
+                    )
                     break
         except ClientError as err:
             _LOGGER.debug("MiniMax TTS WebSocket read error: %s", err)
         finally:
+            _LOGGER.debug(
+                "MiniMax TTS WS read done: %d chunk(s), %d byte(s)",
+                audio_chunks,
+                audio_bytes,
+            )
             await queue.put(None)
