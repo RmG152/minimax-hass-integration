@@ -18,7 +18,6 @@ from custom_components.minimax.config_flow import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_SPEED,
-    CONF_VOICE_ID,
     CONF_VOL,
     LLMSubentryFlowHandler,
     MiniMaxConfigFlow,
@@ -241,7 +240,8 @@ class TestAsyncMinimaxOptionSchema:
         ]
 
         assert "name" in key_names
-        assert CONF_VOICE_ID in key_names
+        assert "voice_id" not in key_names
+        assert "chat_model" not in key_names
         assert CONF_RECOMMENDED in key_names
         assert CONF_SPEED not in key_names
 
@@ -261,7 +261,8 @@ class TestAsyncMinimaxOptionSchema:
         ]
 
         assert "name" in key_names
-        assert CONF_VOICE_ID in key_names
+        assert "voice_id" not in key_names
+        assert "chat_model" not in key_names
         assert CONF_SPEED in key_names
         assert CONF_VOL in key_names
         assert CONF_PITCH in key_names
@@ -416,7 +417,8 @@ class TestLLMSubentryFlowHandler:
 
         assert result["type"] == FlowResultType.FORM
         schema_text = str(result["data_schema"])
-        assert CONF_VOICE_ID in schema_text
+        assert "voice_id" not in schema_text
+        assert "chat_model" not in schema_text
         assert CONF_SPEED not in schema_text
 
     async def test_tts_schema_advanced(self, hass):

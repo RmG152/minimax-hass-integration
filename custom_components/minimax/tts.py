@@ -1,7 +1,10 @@
 """Text to speech support for MiniMax."""
 
+from collections.abc import Mapping
 import logging
 from typing import Any
+
+from propcache.api import cached_property
 
 from homeassistant.components.tts import (
     ATTR_VOICE,
@@ -19,7 +22,6 @@ from .const import (
     CONF_PITCH,
     CONF_SPEED,
     CONF_TTS_MODEL,
-    CONF_VOICE_ID,
     CONF_VOL,
     DEFAULT_LANGUAGE_BOOST,
     DEFAULT_PITCH,
@@ -70,12 +72,11 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         self._attr_name = subentry.title
         self._attr_unique_id = subentry.subentry_id
 
-    @property
-    def default_options(self) -> dict[str, Any]:
+    @cached_property
+    def default_options(self) -> Mapping[str, Any]:
         """Return a mapping with the default options."""
-        return {
-            ATTR_VOICE: self.subentry.data.get(CONF_VOICE_ID, "English_PlayfulGirl"),
-        }
+        voices = self.async_get_supported_voices(self._attr_default_language)
+        return {ATTR_VOICE: voices[0].voice_id if voices else ""}
 
     @callback
     def async_get_supported_voices(self, language: str) -> list[Voice] | None:
@@ -97,9 +98,7 @@ class MiniMaxTTSEntity(TextToSpeechEntity):
         _LOGGER.debug(
             "TTS request: message_length=%d, language=%s", len(message), language
         )
-        voice_id = options.get(
-            ATTR_VOICE, self.subentry.data.get(CONF_VOICE_ID, "English_PlayfulGirl")
-        )
+        voice_id = options[ATTR_VOICE]
         speed = options.get(
             CONF_SPEED, self.subentry.data.get(CONF_SPEED, DEFAULT_SPEED)
         )

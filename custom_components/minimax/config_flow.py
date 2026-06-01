@@ -45,7 +45,6 @@ from .const import (
     CONF_RECOMMENDED,
     CONF_SPEED,
     CONF_TTS_MODEL,
-    CONF_VOICE_ID,
     CONF_VOL,
     DEFAULT_AI_TASK_NAME,
     DEFAULT_CONVERSATION_EXPIRY_MINUTES,
@@ -328,14 +327,6 @@ def async_minimax_option_schema(
         schema.update(
             {
                 vol.Optional(
-                    CONF_VOICE_ID,
-                    description={
-                        "suggested_value": options.get(
-                            CONF_VOICE_ID, "English_PlayfulGirl"
-                        )
-                    },
-                ): TextSelector(),
-                vol.Optional(
                     CONF_TTS_MODEL,
                     description={
                         "suggested_value": options.get(
@@ -448,23 +439,6 @@ def async_minimax_option_schema(
                     CONF_PITCH,
                     default=options.get(CONF_PITCH, DEFAULT_PITCH),
                 ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
-            }
-        )
-        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    description={"suggested_value": default_model},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label=m["label"], value=m["value"])
-                            for m in CHAT_MODELS
-                        ],
-                    )
-                ),
             }
         )
     elif subentry_type == "ai_task_data":

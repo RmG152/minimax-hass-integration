@@ -9,7 +9,6 @@ from custom_components.minimax.const import (
     CONF_PITCH,
     CONF_SPEED,
     CONF_TTS_MODEL,
-    CONF_VOICE_ID,
     CONF_VOL,
     RECOMMENDED_TTS_MODEL,
     RECOMMENDED_TTS_OPTIONS,
@@ -79,7 +78,7 @@ class TestMiniMaxTTSEntity:
         """Test default_options returns correct options."""
         options = entity.default_options
         assert ATTR_VOICE in options
-        assert options[ATTR_VOICE] == RECOMMENDED_TTS_OPTIONS[CONF_VOICE_ID]
+        assert options[ATTR_VOICE] == VOICE_IDS["en-US"][0]
 
     def test_async_get_supported_voices_for_en(self, entity):
         """Test async_get_supported_voices returns voices for en-US."""
@@ -157,12 +156,12 @@ class TestMiniMaxTTSEntity:
         await entity.async_get_tts_audio(
             message="Hello",
             language="en-US",
-            options={},
+            options={ATTR_VOICE: VOICE_IDS["en-US"][0]},
         )
 
         mock_client.async_tts.assert_called_once()
         kwargs = mock_client.async_tts.call_args[1]
-        assert kwargs["voice_id"] == RECOMMENDED_TTS_OPTIONS[CONF_VOICE_ID]
+        assert kwargs["voice_id"] == VOICE_IDS["en-US"][0]
         assert kwargs["speed"] == RECOMMENDED_TTS_OPTIONS[CONF_SPEED]
         assert kwargs["vol"] == RECOMMENDED_TTS_OPTIONS[CONF_VOL]
         assert kwargs["pitch"] == RECOMMENDED_TTS_OPTIONS[CONF_PITCH]
@@ -185,7 +184,7 @@ class TestMiniMaxTTSEntity:
         await entity.async_get_tts_audio(
             message="Hello",
             language="en-US",
-            options={},
+            options={ATTR_VOICE: "English_PlayfulGirl"},
         )
 
         mock_client.async_tts.assert_called_once()

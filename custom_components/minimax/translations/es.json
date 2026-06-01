@@ -106,7 +106,6 @@
           "description": "Configura los ajustes de salida de voz.",
           "data": {
             "name": "Nombre",
-            "voice_id": "Voz",
             "tts_model": "Modelo",
             "language_boost": "Impulso de idioma",
             "speed": "Velocidad",
@@ -115,7 +114,6 @@
             "recommended": "Usar ajustes recomendados"
           },
           "data_description": {
-            "voice_id": "Introduce cualquier ID de voz (ej. English_PlayfulGirl o un ID numérico). La lista oficial de voces MiniMax está en https://platform.minimax.io/docs/faq/system-voice-id",
             "tts_model": "Selecciona el modelo TTS. Los modelos HD ofrecen mayor calidad, los modelos turbo son más rápidos.",
             "language_boost": "Sugerencia de idioma opcional para mejorar la pronunciación (ej. Catalan, Spanish, Danish). Deja vacío para detección automática.",
             "speed": "Multiplicador de velocidad de habla (0.5 a 2.0)",
