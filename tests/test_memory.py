@@ -458,3 +458,88 @@ class TestMemoryStoreEdgeCases:
 
         fact = memory_store._memories[0]
         assert before <= fact["last_accessed"] <= after
+
+
+class TestMemoryStoreSaveEdgeCases:
+    """Test edge cases in async_save and add_fact truncation."""
+
+    @pytest.mark.asyncio
+    async def test_async_save_without_hass_returns_early(
+        self, memory_store, mock_store
+    ):
+        """Test async_save is a no-op when _store is None (line 57-58)."""
+        _mock_cls, mock_instance = mock_store
+        memory_store._store = None
+        memory_store._memories = [{"id": "1", "fact": "Should not save"}]
+
+        await memory_store.async_save()
+
+        mock_instance.async_save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_save_when_load_returns_none(
+        self, memory_store, hass, mock_store
+    ):
+        """Test async_save when existing store data is None (line 61-62)."""
+        _mock_cls, mock_instance = mock_store
+        mock_instance.async_load = AsyncMock(return_value=None)
+        memory_store.set_hass(hass)
+        memory_store._memories = [{"id": "1", "fact": "New fact"}]
+
+        await memory_store.async_save()
+
+        saved_data = mock_instance.async_save.call_args[0][0]
+        assert saved_data == {TEST_ENTRY_ID: [{"id": "1", "fact": "New fact"}]}
+
+    @pytest.mark.asyncio
+    async def test_add_fact_truncates_long_content(
+        self, memory_store, hass, mock_store
+    ):
+        """Test that facts longer than MAX_FACT_LENGTH are truncated (line 116)."""
+        from custom_components.minimax.memory import MAX_FACT_LENGTH
+
+        _mock_cls, mock_instance = mock_store
+        mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
+        memory_store.set_hass(hass)
+
+        long_fact = "x" * (MAX_FACT_LENGTH + 100)
+
+        await memory_store.async_add_fact(long_fact)
+
+        stored = memory_store._memories[0]["fact"]
+        assert len(stored) == MAX_FACT_LENGTH
+        assert stored == "x" * MAX_FACT_LENGTH
+
+    @pytest.mark.asyncio
+    async def test_add_fact_strips_invalid_control_chars(
+        self, memory_store, hass, mock_store
+    ):
+        """Test that add_fact strips invalid control characters."""
+        _mock_cls, mock_instance = mock_store
+        mock_instance.async_load = AsyncMock(return_value={TEST_ENTRY_ID: []})
+        memory_store.set_hass(hass)
+
+        dirty_fact = "Hello\x00World\x01Foo\x07Bar"
+        await memory_store.async_add_fact(dirty_fact)
+
+        stored = memory_store._memories[0]["fact"]
+        assert "\x00" not in stored
+        assert "\x01" not in stored
+        assert "\x07" not in stored
+        assert stored == "HelloWorldFooBar"
+
+    @pytest.mark.asyncio
+    async def test_add_fact_inserts_at_beginning(self, memory_store, hass, mock_store):
+        """Test that new facts are inserted at the beginning of the list."""
+        _mock_cls, mock_instance = mock_store
+        mock_instance.async_load = AsyncMock(
+            return_value={
+                TEST_ENTRY_ID: [{"id": "old", "fact": "Old", "created_at": 100.0}]
+            }
+        )
+        memory_store.set_hass(hass)
+
+        await memory_store.async_add_fact("New fact")
+
+        assert memory_store._memories[0]["fact"] == "New fact"
+        assert memory_store._memories[1]["fact"] == "Old"

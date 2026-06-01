@@ -10,7 +10,10 @@ from aiohttp import ClientSession
 import anthropic
 import httpx
 
+from homeassistant.util.ssl import client_context
+
 from .const import (
+    CHAT_TIMEOUT,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
@@ -22,7 +25,6 @@ TTS_TIMEOUT = 60
 STT_TIMEOUT = 60
 IMAGE_TIMEOUT = 120
 IMAGE_FETCH_TIMEOUT = 30
-AI_TASK_TIMEOUT = 120
 MINIMAX_DOMAINS = ["api.minimax.io", "cdn.minimax.io", "minimax.io"]
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,9 +49,15 @@ class MiniMaxApiClient:
             api_key=api_key,
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
-                timeout=httpx.Timeout(AI_TASK_TIMEOUT),
+                verify=client_context(),
+                timeout=httpx.Timeout(CHAT_TIMEOUT),
             ),
         )
+
+    @property
+    def api_key(self) -> str:
+        """Return the API key (used by the WebSocket TTS client)."""
+        return self._api_key
 
     async def async_chat(
         self,
@@ -114,7 +122,7 @@ class MiniMaxApiClient:
             _LOGGER.error("Anthropic API error: %s", err)
             return {
                 "success": False,
-                "error": str(err),
+                "error": str(err)[:200],
             }
 
     async def async_tts(
@@ -247,7 +255,8 @@ class MiniMaxApiClient:
                                 "Untrusted image URL"
                             )
                         async with httpx.AsyncClient(
-                            timeout=httpx.Timeout(IMAGE_FETCH_TIMEOUT)
+                            verify=client_context(),
+                            timeout=httpx.Timeout(IMAGE_FETCH_TIMEOUT),
                         ) as client:
                             img_resp = await client.get(url)
                             img_resp.raise_for_status()

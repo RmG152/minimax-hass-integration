@@ -106,19 +106,21 @@
           "description": "Configure voice output settings.",
           "data": {
             "name": "Name",
-            "voice_id": "Voice",
+            "tts_model": "Model",
             "language_boost": "Language Boost",
             "speed": "Speed",
             "vol": "Volume",
             "pitch": "Pitch",
+            "streaming_format": "Streaming Audio Format",
             "recommended": "Use Recommended Settings"
           },
           "data_description": {
-            "voice_id": "Enter any voice ID (e.g., English_PlayfulGirl or a numeric ID). The official MiniMax voice list is available at https://platform.minimax.io/docs/faq/system-voice-id",
+            "tts_model": "Select the TTS model. HD models offer higher quality, turbo models are faster.",
             "language_boost": "Optional language hint for better pronunciation (e.g., Catalan, Spanish, Danish). Leave empty for auto-detection.",
             "speed": "Speech speed multiplier (0.5 to 2.0)",
-            "vol": "Volume level (0.0 to 2.0)",
-            "pitch": "Voice pitch adjustment (-10 to 10)"
+            "vol": "Volume level (0.0 to 1.0)",
+            "pitch": "Voice pitch adjustment (-10 to 10)",
+            "streaming_format": "Audio format used while streaming the assistant's response. MP3 is broadly compatible; PCM is lowest-latency but raw; Opus is compact and ideal for voice satellites."
           }
         }
       }

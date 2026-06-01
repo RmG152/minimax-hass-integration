@@ -29,22 +29,120 @@ minimax-homeassistant-integration/
 
 ## Build/Lint/Test Commands
 
-This project has no dedicated test files or linting configuration. For Home Assistant custom integrations:
+**Always run before every commit:**
 
 ```bash
-# Verify Python syntax (run locally):
-python3 -m py_compile __init__.py const.py config_flow.py conversation.py stt.py tts.py
-
-# If you add tests, run them with:
-python -m pytest
-
-# For linting (if configured):
+# 1. Lint with ruff (fix all issues):
 python -m ruff check .
+
+# 2. Format with ruff:
 python -m ruff format .
+
+# 3. Run tests with coverage (Linux/macOS only; on Windows see next section):
+python -m pytest tests/ --cov --cov-branch --cov-report=xml
+```
+
+Aim for 100% patch coverage on new/modified lines.
+
+**Windows caveat:** the `python -m pytest ...` command above **does not
+work on Windows** — `pytest-homeassistant-custom-component` imports
+`fcntl`/`resource`/`pwd`/`grp` at collection time and those modules do
+not exist on Windows. Use the helper script in
+[Running tests on Windows](#running-tests-on-windows) instead.
+
+Additional commands:
+
+```bash
+# Verify Python syntax only:
+python3 -m py_compile __init__.py const.py config_flow.py conversation.py stt.py tts.py
 
 # For type checking:
 python -m mypy .
 ```
+
+## Running tests on Windows
+
+> **Important:** on Windows, **always run the tests via
+> `.\scripts\run_tests.ps1`** and never with the raw `python -m pytest
+> tests/ ...` command shown above.
+>
+> `pytest-homeassistant-custom-component` (a transitive dependency)
+> imports `fcntl` / `resource` / `pwd` / `grp` at collection time,
+> which crashes on Windows because those POSIX modules do not exist
+> there. The helper script works around this by (a) installing a tiny
+> user-site stub that injects fake implementations of those modules,
+> and (b) disabling pytest's plugin auto-loader and explicitly loading
+> only the plugins we need.
+>
+> Running `python -m pytest` directly will fail with an `ImportError`
+> before any test is collected, so the script is not optional on
+> Windows.
+
+`pytest-homeassistant-custom-component` (transitive dep) imports `fcntl` /
+`resource` / `pwd` / `grp` at collection time, which fails on Windows because
+those modules don't exist. A small stub is required before pytest loads.
+
+**Preferred:** use the helper script (it auto-installs the stub):
+
+```powershell
+# Run the full suite:
+.\scripts\run_tests.ps1
+
+# Run a single file:
+.\scripts\run_tests.ps1 -Path "tests/test_memory.py"
+
+# Run a single test with verbose output, no coverage:
+.\scripts\run_tests.ps1 -Path "tests/test_ai_task.py::TestSchemaHelpers::test_format_object_schema_property_with_enum" -NoCoverage -VerboseOutput
+```
+
+**Manual** (equivalent commands, paste into PowerShell):
+
+```powershell
+# One-time: install the fcntl/resource/pwd/grp stub at user-site so any pytest run finds it
+$userSite = python -c "import site; print(site.getusersitepackages())"
+New-Item -ItemType Directory -Path $userSite -Force | Out-Null
+@'
+import sys, types
+for _n in ("fcntl", "resource", "pwd", "grp"):
+    if _n in sys.modules: continue
+    m = types.ModuleType(_n)
+    if _n == "fcntl":
+        m.LOCK_EX, m.LOCK_SH, m.LOCK_NB, m.LOCK_UN = 2, 1, 4, 8
+        m.flock = lambda *a, **k: 0
+        m.ioctl = lambda *a, **k: 0
+    elif _n == "resource":
+        m.RLIMIT_CPU, m.RLIMIT_NOFILE = 0, 7
+        m.getrlimit = lambda *a, **k: (0, 0)
+        m.setrlimit = lambda *a, **k: None
+    elif _n == "pwd":
+        m.getpwnam = lambda *a, **k: types.SimpleNamespace(pw_uid=0)
+        m.getpwuid = lambda *a, **k: types.SimpleNamespace(pw_name="root")
+    elif _n == "grp":
+        m.getgrnam = lambda *a, **k: types.SimpleNamespace(gr_gid=0)
+        m.getgrgid = lambda *a, **k: types.SimpleNamespace(gr_name="root")
+    sys.modules[_n] = m
+'@ | Set-Content -LiteralPath (Join-Path $userSite "sitecustomize.py") -Encoding UTF8
+
+# Then run pytest with plugin auto-load disabled and only the plugins we need:
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD = "1"
+python -m pytest tests/ `
+    --no-header --tb=line --confcutdir=. `
+    -p asyncio --asyncio-mode=auto `
+    -p pytest_cov -p pytest_timeout -p pytest_aiohttp
+```
+
+**Why the flags are needed:**
+- `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` prevents pytest from auto-loading
+  `pytest-homeassistant-custom-component` (which would crash on the fcntl
+  import).
+- The explicit `-p asyncio / pytest_cov / pytest_timeout / pytest_aiohttp`
+  flags are required because the auto-loader is off.
+- `--asyncio-mode=auto` lets async test functions run without explicit
+  `@pytest.mark.asyncio` markers.
+- `--confcutdir=.` makes sure `tests/conftest.py` is the one used (it stubs
+  `turbojpeg` and patches `aiohttp` clients).
+- The user-site `sitecustomize.py` stub is harmless on Linux/macOS (it just
+  registers modules that already exist and are left alone).
 
 ## Deployment
 
@@ -102,7 +200,7 @@ ssh root@10.0.100.61 'tail /homeassistant/homeassistant.log | grep -i minimax'
 ### Imports
 
 Order imports as:
-1. Standard library (`from __future__ import annotations`, `logging`, `re`, etc.)
+1. Standard library (`logging`, `re`, etc.)
 2. Third-party (`httpx`, `voluptuous`, `aiohttp`)
 3. Home Assistant core (`homeassistant.*`)
 4. Local relative imports (`.const`, `.config_flow`)
@@ -267,6 +365,11 @@ When adding tests:
 - Use `pytest` and `pytest-asyncio`
 - Mock httpx responses
 - Test config flow with `config_flow.TestFlows`
+- Run ruff lint and format
+<!-- , then run `python -m pytest tests/ --cov --cov-branch --cov-report=xml` before every commit -->
+- Aim for 100% patch coverage on new/modified lines
+- Use `pytest.approx()` for floating-point comparisons to avoid SonarCloud warnings
+- Use `https://` URLs in test data to avoid SonarCloud security hotspots
 
 ## Common Issues and Solutions
 

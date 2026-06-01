@@ -18,7 +18,7 @@ from custom_components.minimax.config_flow import (
     CONF_PROMPT,
     CONF_RECOMMENDED,
     CONF_SPEED,
-    CONF_VOICE_ID,
+    CONF_STREAMING_FORMAT,
     CONF_VOL,
     LLMSubentryFlowHandler,
     MiniMaxConfigFlow,
@@ -241,9 +241,11 @@ class TestAsyncMinimaxOptionSchema:
         ]
 
         assert "name" in key_names
-        assert CONF_VOICE_ID in key_names
+        assert "voice_id" not in key_names
+        assert "chat_model" not in key_names
         assert CONF_RECOMMENDED in key_names
         assert CONF_SPEED not in key_names
+        assert CONF_STREAMING_FORMAT not in key_names
 
     def test_tts_schema_advanced_fields(self):
         """Test TTS schema contains advanced fields when not recommended."""
@@ -261,10 +263,12 @@ class TestAsyncMinimaxOptionSchema:
         ]
 
         assert "name" in key_names
-        assert CONF_VOICE_ID in key_names
+        assert "voice_id" not in key_names
+        assert "chat_model" not in key_names
         assert CONF_SPEED in key_names
         assert CONF_VOL in key_names
         assert CONF_PITCH in key_names
+        assert CONF_STREAMING_FORMAT in key_names
 
     def test_stt_schema_includes_all_fields(self):
         """Test STT schema contains expected fields."""
@@ -416,8 +420,10 @@ class TestLLMSubentryFlowHandler:
 
         assert result["type"] == FlowResultType.FORM
         schema_text = str(result["data_schema"])
-        assert CONF_VOICE_ID in schema_text
+        assert "voice_id" not in schema_text
+        assert "chat_model" not in schema_text
         assert CONF_SPEED not in schema_text
+        assert CONF_STREAMING_FORMAT not in schema_text
 
     async def test_tts_schema_advanced(self, hass):
         """Test TTS subentry shows advanced fields when recommended is off."""
@@ -439,6 +445,7 @@ class TestLLMSubentryFlowHandler:
         assert CONF_SPEED in schema_text
         assert CONF_VOL in schema_text
         assert CONF_PITCH in schema_text
+        assert CONF_STREAMING_FORMAT in schema_text
 
     async def test_stt_schema(self, hass):
         """Test STT subentry schema has expected fields."""
@@ -559,3 +566,148 @@ class TestLLMSubentryFlowHandler:
         )
         assert result["type"] == FlowResultType.CREATE_ENTRY
         assert result["title"] == "My Agent"
+
+    async def test_subentry_flow_updates_existing_entry(self, hass):
+        """Test subentry flow updates existing subentry when recommended matches."""
+        from unittest.mock import MagicMock
+
+        from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
+        from homeassistant.config_entries import SOURCE_RECONFIGURE
+        from tests import create_mock_minimax_config_entry
+
+        entry = create_mock_minimax_config_entry(hass)
+        subentry = MagicMock()
+        subentry.subentry_id = "conv_001"
+        subentry.subentry_type = "conversation"
+        subentry.title = "Original"
+        subentry.data = RECOMMENDED_CONVERSATION_OPTIONS.copy()
+        entry.subentries = {"conv_001": subentry}
+
+        flow = LLMSubentryFlowHandler()
+        flow.hass = hass
+        flow.handler = (entry.entry_id, "conv_001")
+        flow.context = {
+            "source": SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+            "subentry_id": "conv_001",
+        }
+
+        await flow.async_step_reconfigure(user_input=None)
+        result = await flow.async_step_reconfigure(
+            user_input={
+                CONF_RECOMMENDED: True,
+                "name": "Updated",
+                CONF_PROMPT: "New prompt",
+            }
+        )
+        assert result["type"] == FlowResultType.ABORT
+
+    async def test_subentry_flow_schema_build_error_aborts(self, hass):
+        """Test subentry flow aborts with reason 'unknown' on schema build failure."""
+        from tests import create_mock_minimax_config_entry
+
+        entry = create_mock_minimax_config_entry(hass)
+
+        flow = LLMSubentryFlowHandler()
+        flow.hass = hass
+        flow.handler = (entry.entry_id, "conversation")
+        flow.context = {"source": "user", "entry_id": entry.entry_id}
+
+        with patch(
+            "custom_components.minimax.config_flow.async_minimax_option_schema",
+            side_effect=Exception("schema boom"),
+        ):
+            result = await flow.async_step_user(user_input=None)
+
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "unknown"
+
+
+class TestReauthFlow:
+    """Test re-authentication success path."""
+
+    @pytest.fixture
+    def flow(self, hass):
+        """Create a MiniMaxConfigFlow in reauth context."""
+        from homeassistant.config_entries import SOURCE_REAUTH
+
+        flow = MiniMaxConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": SOURCE_REAUTH}
+        flow.handler = "minimax"
+        return flow
+
+    async def test_reauth_success_updates_entry(self, flow, hass):
+        """Test reauth success path calls update_reload_and_abort."""
+        from tests import create_mock_minimax_config_entry
+
+        existing_entry = create_mock_minimax_config_entry(hass)
+        flow._get_reauth_entry = lambda: existing_entry
+
+        with (
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
+        ):
+            instance = AsyncMock()
+            instance.async_verify_connection = AsyncMock(return_value=True)
+            mock_client.return_value = instance
+            mock_session.return_value = MagicMock()
+
+            result = await flow.async_step_user(user_input={CONF_API_KEY: "new_key"})
+
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "reauth_successful"
+
+
+class TestConfigFlowExtraErrors:
+    """Test extra error handling paths in config flow."""
+
+    @pytest.fixture
+    def flow(self, hass):
+        """Create a MiniMaxConfigFlow instance."""
+        flow = MiniMaxConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "user"}
+        flow.handler = "minimax"
+        return flow
+
+    async def test_user_flow_error_without_auth_keywords(self, flow, hass):
+        """Test that MiniMaxApiClientError without '401'/'api_key' falls to cannot_connect."""
+        from custom_components.minimax.api import MiniMaxApiClientError
+
+        with (
+            patch(
+                "custom_components.minimax.config_flow.MiniMaxApiClient"
+            ) as mock_client,
+            patch(
+                "custom_components.minimax.config_flow.async_get_clientsession"
+            ) as mock_session,
+        ):
+            instance = AsyncMock()
+            instance.async_verify_connection = AsyncMock(
+                side_effect=MiniMaxApiClientError("Unexpected server response")
+            )
+            mock_client.return_value = instance
+            mock_session.return_value = MagicMock()
+
+            result = await flow.async_step_user(user_input={CONF_API_KEY: "test_key"})
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {"base": "cannot_connect"}
+
+    async def test_user_flow_invalid_auth_error(self, flow, hass):
+        """Test that InvalidAuthError raised by validate_input is caught."""
+        from custom_components.minimax.config_flow import InvalidAuthError
+
+        with patch(
+            "custom_components.minimax.config_flow.validate_input",
+            AsyncMock(side_effect=InvalidAuthError("Invalid API key")),
+        ):
+            result = await flow.async_step_user(user_input={CONF_API_KEY: "bad_key"})
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["errors"] == {"base": "invalid_auth"}

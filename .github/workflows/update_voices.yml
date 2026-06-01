@@ -1,0 +1,87 @@
+name: Update Voices on Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to check out and push to (e.g. v1.2.3)"
+        required: true
+        type: string
+  release:
+    types: [published]
+
+jobs:
+  check-secret:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      has-key: ${{ steps.check.outputs.has-key }}
+    steps:
+      - id: check
+        env:
+          API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: |
+          if [ -n "$API_KEY" ]; then
+            echo "has-key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has-key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  update-voices:
+    needs: check-secret
+    if: needs.check-secret.outputs.has-key == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      TARGET_TAG: ${{ github.event.inputs.tag_name || github.event.release.tag_name }}
+    steps:
+      - name: Validate tag name
+        run: |
+          if ! git check-ref-format "refs/tags/${TARGET_TAG}"; then
+            echo "Invalid ref name: refs/tags/${TARGET_TAG}" >&2
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ env.TARGET_TAG }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Update voices in const.py
+        env:
+          MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
+        run: python update_voices.py --output update
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Re-authenticate origin with GITHUB_TOKEN
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+
+      - name: Commit and push changes
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git add custom_components/minimax/const.py
+          git commit -m "chore: update voice list from MiniMax API for ${TARGET_TAG}"
+          git push origin "HEAD:${TARGET_TAG}"

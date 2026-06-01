@@ -64,6 +64,10 @@ class TestMiniMaxApiClientInit:
         """Test client stores the aiohttp session."""
         assert api_client._session is mock_session
 
+    def test_api_key_property(self, api_client):
+        """Test the public api_key property returns the stored key."""
+        assert api_client.api_key == TEST_API_KEY
+
 
 def _make_text_block(text: str) -> MagicMock:
     """Create a mock content block with type text."""

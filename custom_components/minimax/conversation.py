@@ -35,12 +35,14 @@ from .const import (
     LOGGER,
     RECOMMENDED_CHAT_MODEL,
 )
+from .entity import MiniMaxBaseEntity
 from .memory import MemoryStore
 
 _LOGGER = logging.getLogger(__name__)
 
 MAX_TOOL_CALLS = 10
 _CHARS_PER_TOKEN = 4
+FALLBACK_RESPONSE = "Sorry, I had trouble answering that."
 
 
 def _get_exposed_entities(hass: HomeAssistant, assistant: str) -> dict[str, Any]:
@@ -70,12 +72,26 @@ def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -
                     ) or state.entity_id.startswith("scene."):
                         continue
                     entities_info += f"- {state.name}: {state.state}\n"
+            else:
+                entities_info = "\n\nNo exposed entities configured.\n"
 
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get exposed entities: %s", err)
         return user_prompt
     else:
         return f"{user_prompt}{entities_info}"
+
+
+def _service_attr(service_data: Any, name: str, default: Any = None) -> Any:
+    """Read an attribute from a HA service entry.
+
+    Supports both the dict shape used by tests and older HA versions, and
+    the `Service` object shape used by HA 2025.12+ where `description` and
+    `fields` are not attributes and the value lives in `services.yaml`.
+    """
+    if isinstance(service_data, dict):
+        return service_data.get(name, default)
+    return getattr(service_data, name, default)
 
 
 def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
@@ -106,8 +122,8 @@ def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
                 for service_name, service_data in services[domain].items():
                     descriptions[domain][service_name] = {
                         "name": service_name,
-                        "description": service_data.get("description", ""),
-                        "fields": service_data.get("fields", {}),
+                        "description": _service_attr(service_data, "description", ""),
+                        "fields": _service_attr(service_data, "fields", {}),
                     }
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get service descriptions: %s", err)
@@ -248,6 +264,7 @@ async def async_setup_entry(
 
 
 class MiniMaxConversationEntity(
+    MiniMaxBaseEntity,
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
 ):
@@ -259,11 +276,7 @@ class MiniMaxConversationEntity(
         self, entry: ConfigEntry, subentry: ConfigSubentry, client: MiniMaxApiClient
     ) -> None:
         """Initialize the agent."""
-        self.entry = entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
+        super().__init__(entry, subentry, client)
         self._tts_enabled = subentry.data.get(CONF_CONVERSATION_TTS_ENABLED, True)
         self._max_tokens = max(
             subentry.data.get(
@@ -555,7 +568,7 @@ class MiniMaxConversationEntity(
                         )
                         text = "\n".join(text_parts) if text_parts else ""
                         if not text:
-                            text = "Jeg husker informationen, men der opstod en fejl ved bekræftelse."
+                            text = FALLBACK_RESPONSE
                         return text, messages
                     raise
 
@@ -665,7 +678,7 @@ class MiniMaxConversationEntity(
             self._conversation_history[conversation_id] = (new_history, time.time())
         except Exception as err:  # noqa: BLE001
             _LOGGER.error("Conversation error: %s", err)
-            response_text = "Sorry, I had trouble answering that."
+            response_text = FALLBACK_RESPONSE
 
         response_text = re.sub(
             r"<think>.*?</think>",
@@ -676,7 +689,7 @@ class MiniMaxConversationEntity(
         response_text = response_text.strip()
 
         if not response_text:
-            response_text = "Beklager, jeg kunne ikke få svar."
+            response_text = FALLBACK_RESPONSE
 
         intent_response = intent.IntentResponse(language=user_input.language)
         intent_response.async_set_speech(response_text)

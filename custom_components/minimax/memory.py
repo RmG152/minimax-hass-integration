@@ -1,5 +1,6 @@
 """Persistent memory storage for MiniMax conversation agent."""
 
+import re
 import time
 import uuid
 
@@ -10,6 +11,7 @@ from .const import DEFAULT_MEMORY_EXPIRY_DAYS, DEFAULT_MEMORY_MAX_COUNT, LOGGER
 
 MEMORY_STORE_VERSION = 1
 MEMORY_STORE_KEY = "minimax.memories"
+MAX_FACT_LENGTH = 500
 
 
 class MemoryStore:
@@ -109,12 +111,20 @@ class MemoryStore:
 
         await self.async_load()
 
+        fact = fact.strip()
+        if len(fact) > MAX_FACT_LENGTH:
+            fact = fact[:MAX_FACT_LENGTH]
+
+        fact = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", fact)
+        if not fact:
+            raise ValueError("Fact cannot be empty after sanitization")
+
         memory_id = str(uuid.uuid4())
         now = time.time()
 
         memory = {
             "id": memory_id,
-            "fact": fact.strip(),
+            "fact": fact,
             "category": category,
             "source": source,
             "created_at": now,

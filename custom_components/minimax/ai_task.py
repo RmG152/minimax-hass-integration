@@ -3,7 +3,7 @@
 import hashlib
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import voluptuous as vol
 from voluptuous_openapi import convert
@@ -16,18 +16,17 @@ from homeassistant.helpers import llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
+from . import MiniMaxConfigEntry
 from .api import MiniMaxApiClient
 from .const import (
-    AI_TASK_TIMEOUT,
+    CHAT_TIMEOUT,
     CONF_CHAT_MODEL,
     CONF_RECOMMENDED,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_MODEL,
 )
-
-if TYPE_CHECKING:
-    type MiniMaxConfigEntry = ConfigEntry[MiniMaxApiClient]
+from .entity import MiniMaxBaseEntity
 
 ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax."
 
@@ -177,7 +176,7 @@ async def async_setup_entry(
         )
 
 
-class MiniMaxAITaskEntity(ai_task.AITaskEntity):
+class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
     """MiniMax AI Task entity."""
 
     _attr_supported_features = (
@@ -192,11 +191,7 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
         client: MiniMaxApiClient,
     ) -> None:
         """Initialize the entity."""
-        self.entry = entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
+        super().__init__(entry, subentry, client)
 
         if subentry.data.get(CONF_RECOMMENDED) or "-image" in subentry.data.get(
             CONF_CHAT_MODEL, ""
@@ -269,7 +264,7 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
                 messages=messages,
                 system_prompt=system_prompt,
                 max_tokens=RECOMMENDED_AI_TASK_MAX_TOKENS,
-                timeout=AI_TASK_TIMEOUT,
+                timeout=CHAT_TIMEOUT,
             )
 
             if not result.get("success", False):
@@ -282,9 +277,8 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
 
             _LOGGER.debug(
-                "AI task: raw response length=%d, content=%s",
+                "AI task: raw response length=%d",
                 len(text),
-                text[:500] if text else "<empty>",
             )
 
             chat_log.async_add_assistant_content_without_tools(

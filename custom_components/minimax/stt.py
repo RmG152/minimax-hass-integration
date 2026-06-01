@@ -4,12 +4,12 @@ from collections.abc import AsyncIterable
 import logging
 
 from homeassistant.components import stt
-from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import MiniMaxApiClient
 from .const import CONF_CHAT_MODEL, CONF_PROMPT, RECOMMENDED_CHAT_MODEL
+from .entity import MiniMaxBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,23 +32,10 @@ async def async_setup_entry(
         )
 
 
-class MiniMaxSTTEntity(stt.SpeechToTextEntity):
+class MiniMaxSTTEntity(MiniMaxBaseEntity, stt.SpeechToTextEntity):
     """MiniMax speech-to-text entity."""
 
     _attr_supported_languages = ["en-US", "zh-CN"]
-
-    def __init__(
-        self,
-        config_entry: ConfigEntry,
-        subentry: ConfigSubentry,
-        client: MiniMaxApiClient,
-    ) -> None:
-        """Initialize the STT entity."""
-        self.entry = config_entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
 
     @property
     def supported_languages(self) -> list[str]:
@@ -104,7 +91,7 @@ class MiniMaxSTTEntity(stt.SpeechToTextEntity):
                 prompt=prompt,
                 audio_format=metadata.format.value,
             )
-            _LOGGER.debug("STT result: %s", text)
+            _LOGGER.debug("STT result length: %d", len(text) if text else 0)
             if text:
                 return stt.SpeechResult(text, stt.SpeechResultState.SUCCESS)
 
