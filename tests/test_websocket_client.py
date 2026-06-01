@@ -111,8 +111,8 @@ class _ReceiveIterator:
 
 async def _empty_text_chunks() -> Any:
     """Async generator that yields nothing and exits."""
-    return
-    yield  # noqa: PLW0101 - mark as async generator
+    for _ in ():
+        yield ""
 
 
 def _make_client(hass: MagicMock, **overrides: Any) -> MiniMaxT2AWebSocketClient:
@@ -230,8 +230,8 @@ class TestStreamLifecycle:
         first = ws.sent[0]
         assert first["model"] == TEST_MODEL
         assert first["voice_setting"]["voice_id"] == "English_Comedian"
-        assert first["voice_setting"]["speed"] == 1.2
-        assert first["voice_setting"]["vol"] == 0.9
+        assert first["voice_setting"]["speed"] == pytest.approx(1.2)
+        assert first["voice_setting"]["vol"] == pytest.approx(0.9)
         assert first["voice_setting"]["pitch"] == 2
 
     @pytest.mark.asyncio

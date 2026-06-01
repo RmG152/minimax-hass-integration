@@ -13,7 +13,7 @@ import httpx
 from homeassistant.util.ssl import client_context
 
 from .const import (
-    ANTHROPIC_CHAT_TIMEOUT,
+    CHAT_TIMEOUT,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
@@ -50,7 +50,7 @@ class MiniMaxApiClient:
             base_url=MINIMAX_ANTHROPIC_API_URL.rsplit("/v1", 1)[0],
             http_client=httpx.AsyncClient(
                 verify=client_context(),
-                timeout=httpx.Timeout(ANTHROPIC_CHAT_TIMEOUT),
+                timeout=httpx.Timeout(CHAT_TIMEOUT),
             ),
         )
 

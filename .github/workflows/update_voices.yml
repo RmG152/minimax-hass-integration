@@ -10,12 +10,11 @@ on:
   release:
     types: [published]
 
-permissions:
-  contents: read
-
 jobs:
   check-secret:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       has-key: ${{ steps.check.outputs.has-key }}
     steps:

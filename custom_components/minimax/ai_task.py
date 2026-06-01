@@ -19,7 +19,7 @@ from homeassistant.util.json import json_loads
 from . import MiniMaxConfigEntry
 from .api import MiniMaxApiClient
 from .const import (
-    ANTHROPIC_CHAT_TIMEOUT,
+    CHAT_TIMEOUT,
     CONF_CHAT_MODEL,
     CONF_RECOMMENDED,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
@@ -264,7 +264,7 @@ class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
                 messages=messages,
                 system_prompt=system_prompt,
                 max_tokens=RECOMMENDED_AI_TASK_MAX_TOKENS,
-                timeout=ANTHROPIC_CHAT_TIMEOUT,
+                timeout=CHAT_TIMEOUT,
             )
 
             if not result.get("success", False):
