@@ -38,11 +38,17 @@ python -m ruff check .
 # 2. Format with ruff:
 python -m ruff format .
 
-# 3. Run tests with coverage:
+# 3. Run tests with coverage (Linux/macOS only; on Windows see next section):
 python -m pytest tests/ --cov --cov-branch --cov-report=xml
 ```
 
 Aim for 100% patch coverage on new/modified lines.
+
+**Windows caveat:** the `python -m pytest ...` command above **does not
+work on Windows** — `pytest-homeassistant-custom-component` imports
+`fcntl`/`resource`/`pwd`/`grp` at collection time and those modules do
+not exist on Windows. Use the helper script in
+[Running tests on Windows](#running-tests-on-windows) instead.
 
 Additional commands:
 
@@ -55,6 +61,22 @@ python -m mypy .
 ```
 
 ## Running tests on Windows
+
+> **Important:** on Windows, **always run the tests via
+> `.\scripts\run_tests.ps1`** and never with the raw `python -m pytest
+> tests/ ...` command shown above.
+>
+> `pytest-homeassistant-custom-component` (a transitive dependency)
+> imports `fcntl` / `resource` / `pwd` / `grp` at collection time,
+> which crashes on Windows because those POSIX modules do not exist
+> there. The helper script works around this by (a) installing a tiny
+> user-site stub that injects fake implementations of those modules,
+> and (b) disabling pytest's plugin auto-loader and explicitly loading
+> only the plugins we need.
+>
+> Running `python -m pytest` directly will fail with an `ImportError`
+> before any test is collected, so the script is not optional on
+> Windows.
 
 `pytest-homeassistant-custom-component` (transitive dep) imports `fcntl` /
 `resource` / `pwd` / `grp` at collection time, which fails on Windows because
