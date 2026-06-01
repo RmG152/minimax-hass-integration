@@ -307,6 +307,39 @@ class TestConversationHelpers:
         assert "No exposed entities configured" in result
 
     @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
+    def test_build_system_prompt_fallback_to_all_states_filters_automation_scene(
+        self, mock_get_exposed
+    ):
+        """Test fallback to all states filters out automation. and scene. entities."""
+        mock_get_exposed.return_value = {"entities": {}}
+        light_state = MagicMock()
+        light_state.entity_id = "light.living_room"
+        light_state.name = "Living Room"
+        light_state.state = "on"
+        automation_state = MagicMock()
+        automation_state.entity_id = "automation.morning"
+        automation_state.name = "Morning"
+        automation_state.state = "off"
+        scene_state = MagicMock()
+        scene_state.entity_id = "scene.movie"
+        scene_state.name = "Movie"
+        scene_state.state = "scening"
+        hass = MagicMock()
+        hass.states.async_all = MagicMock(
+            return_value=[light_state, automation_state, scene_state]
+        )
+        hass.services = MagicMock()
+        hass.services.async_services = MagicMock(return_value={})
+
+        result = minimax_conversation._build_system_prompt(
+            "You are EVA.", hass, "test_agent"
+        )
+        assert "You are EVA." in result
+        assert "Living Room" in result
+        assert "Morning" not in result
+        assert "Movie" not in result
+
+    @patch("custom_components.minimax.conversation.llm._get_exposed_entities")
     def test_build_system_prompt_skips_automation_and_scene(self, mock_get_exposed):
         """Test _build_system_prompt with exposed entities filters properly."""
         mock_get_exposed.return_value = {
@@ -698,3 +731,539 @@ class TestConversationSetup:
         await minimax_conversation.async_setup_entry(hass, entry, mock_add_entities)
 
         assert len(entities_added) == 0
+
+
+class TestConversationEntityExtra:
+    """Extra coverage for MiniMaxConversationEntity paths."""
+
+    @pytest.fixture
+    def mock_client(self):
+        """Create a mock client."""
+        from tests import create_mock_minimax_client
+
+        return create_mock_minimax_client()
+
+    @pytest.fixture
+    def mock_memory_store(self):
+        """Mock MemoryStore to avoid storage operations."""
+        with patch("custom_components.minimax.conversation.MemoryStore") as mock:
+            instance = MagicMock()
+            instance.async_load = AsyncMock()
+            instance.async_add_fact = AsyncMock(return_value="memory_id_123")
+            instance.async_get_facts = AsyncMock(return_value=[])
+            instance.async_remove_fact = AsyncMock(return_value=True)
+            instance.async_clear = AsyncMock()
+            instance.async_get_memory_count = AsyncMock(return_value=0)
+            instance.set_hass = MagicMock()
+            mock.return_value = instance
+            yield instance
+
+    @pytest.fixture
+    def entity(self, hass, mock_client, mock_memory_store):
+        """Create a conversation entity."""
+        entry = _make_config_entry()
+        subentry = _make_subentry()
+        entry.subentries = {"conversation": subentry}
+        entity = minimax_conversation.MiniMaxConversationEntity(
+            entry=entry, subentry=subentry, client=mock_client
+        )
+        entity.hass = hass
+        return entity
+
+    @pytest.mark.asyncio
+    async def test_async_added_to_hass_with_memory(self, entity, hass):
+        """Test async_added_to_hass loads memories when memory is enabled."""
+        with patch.object(conversation, "async_set_agent"):
+            await entity.async_added_to_hass()
+        entity._memory_store.set_hass.assert_called_once_with(hass)
+        entity._memory_store.async_load.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_tools_caches(self, entity, hass):
+        """Test _get_tools caches results."""
+        with patch(
+            "custom_components.minimax.conversation._get_homeassistant_tools",
+            return_value=[],
+        ) as mock_get:
+            tools1 = entity._get_tools()
+            tools2 = entity._get_tools()
+        assert tools1 == tools2
+        mock_get.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_get_tools_with_memory_extends(self, entity):
+        """Test _get_tools appends memory tools when memory is enabled."""
+        with patch(
+            "custom_components.minimax.conversation._get_homeassistant_tools",
+            return_value=[],
+        ):
+            tools = entity._get_tools()
+        tool_names = [t["name"] for t in tools]
+        assert "remember_user_fact" in tool_names
+        assert "recall_user_facts" in tool_names
+        assert "forget_user_fact" in tool_names
+        assert "forget_all_user_facts" in tool_names
+
+    @pytest.mark.asyncio
+    async def test_get_memory_section_no_store_returns_empty(self, entity):
+        """Test _get_memory_section returns empty string when store is None."""
+        entity._memory_store = None
+        result = await entity._get_memory_section()
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_get_memory_section_no_facts_returns_empty(self, entity):
+        """Test _get_memory_section returns empty when no memories."""
+        entity._memory_store.async_get_facts = AsyncMock(return_value=[])
+        result = await entity._get_memory_section()
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_get_memory_section_with_facts(self, entity):
+        """Test _get_memory_section includes stored facts."""
+        entity._memory_store.async_get_facts = AsyncMock(
+            return_value=[
+                {"fact": "User likes coffee"},
+                {"fact": "User owns a dog"},
+            ]
+        )
+        result = await entity._get_memory_section()
+        assert "Known User Facts" in result
+        assert "User likes coffee" in result
+        assert "User owns a dog" in result
+
+    @pytest.mark.asyncio
+    async def test_get_memory_section_exception_returns_empty(self, entity):
+        """Test _get_memory_section returns empty on exception."""
+        entity._memory_store.async_get_facts = AsyncMock(
+            side_effect=Exception("memory boom")
+        )
+        result = await entity._get_memory_section()
+        assert result == ""
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_tool_call_recursive(self, entity, mock_client):
+        """Test _chat_with_api executes tool calls recursively."""
+        tool_response = {
+            "success": True,
+            "content": [
+                {"type": "text", "text": "Turning on light."},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "light.turn_on",
+                    "input": {"entity_id": "light.living_room"},
+                },
+            ],
+            "text": "Turning on light.",
+            "tool_calls": [
+                {
+                    "id": "toolu_1",
+                    "name": "light.turn_on",
+                    "input": {"entity_id": "light.living_room"},
+                }
+            ],
+            "stop_reason": "tool_use",
+        }
+        final_response = {
+            "success": True,
+            "content": [{"type": "text", "text": "Light is on."}],
+            "text": "Light is on.",
+            "tool_calls": [],
+            "stop_reason": "end_turn",
+        }
+        mock_client.async_chat = AsyncMock(side_effect=[tool_response, final_response])
+        with patch(
+            "custom_components.minimax.conversation._call_service",
+            AsyncMock(return_value={"success": True, "result": "ok"}),
+        ):
+            text, _messages = await entity._chat_with_api(
+                "system",
+                [{"role": "user", "content": "turn on light"}],
+                [],
+                "model",
+            )
+        assert text == "Light is on."
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_tool_id_mismatch(self, entity, mock_client):
+        """Test _chat_with_api handles tool id mismatch by returning prior text."""
+        tool_response = {
+            "success": True,
+            "content": [
+                {"type": "text", "text": "Here is info."},
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "remember_user_fact",
+                    "input": {"fact": "User likes coffee"},
+                },
+            ],
+            "text": "Here is info.",
+            "tool_calls": [
+                {
+                    "id": "toolu_1",
+                    "name": "remember_user_fact",
+                    "input": {"fact": "User likes coffee"},
+                }
+            ],
+            "stop_reason": "tool_use",
+        }
+        call_count = {"n": 0}
+
+        async def chat_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return tool_response
+            raise Exception("tool id not found")  # noqa: TRY002
+
+        mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
+        with patch.object(entity, "_execute_tool_calls", AsyncMock(return_value=[])):
+            text, _ = await entity._chat_with_api(
+                "system",
+                [{"role": "user", "content": "remember"}],
+                [],
+                "model",
+            )
+        assert text == "Here is info."
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_tool_id_mismatch_no_text(self, entity, mock_client):
+        """Test tool id mismatch returns fallback text when no text parts."""
+        tool_response = {
+            "success": True,
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "remember_user_fact",
+                    "input": {"fact": "User likes coffee"},
+                },
+            ],
+            "text": "",
+            "tool_calls": [
+                {
+                    "id": "toolu_1",
+                    "name": "remember_user_fact",
+                    "input": {"fact": "User likes coffee"},
+                }
+            ],
+            "stop_reason": "tool_use",
+        }
+        call_count = {"n": 0}
+
+        async def chat_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return tool_response
+            raise Exception("tool id not found")  # noqa: TRY002
+
+        mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
+        with patch.object(entity, "_execute_tool_calls", AsyncMock(return_value=[])):
+            text, _ = await entity._chat_with_api(
+                "system",
+                [{"role": "user", "content": "remember"}],
+                [],
+                "model",
+            )
+        assert "I remember the information" in text
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_text_only_with_tool_use(self, entity, mock_client):
+        """Test _chat_with_api returns text when no tool calls are executed."""
+        tool_response = {
+            "success": True,
+            "content": [{"type": "text", "text": "Some text"}],
+            "text": "Some text",
+            "tool_calls": [],
+            "stop_reason": "end_turn",
+        }
+        mock_client.async_chat = AsyncMock(return_value=tool_response)
+        text, _ = await entity._chat_with_api("system", [], [], "model")
+        assert text == "Some text"
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_error_raises(self, entity, mock_client):
+        """Test _chat_with_api raises on API error."""
+        from custom_components.minimax.api import MiniMaxApiClientError
+
+        mock_client.async_chat = AsyncMock(
+            return_value={"success": False, "error": "boom"}
+        )
+        with pytest.raises(MiniMaxApiClientError):
+            await entity._chat_with_api("system", [], [], "model")
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_calls_service(self, entity, hass):
+        """Test _execute_tool_calls invokes _call_service for service tools."""
+        tool_calls = [
+            {
+                "id": "call_1",
+                "name": "light.turn_on",
+                "input": {"entity_id": "light.living_room"},
+            }
+        ]
+        with patch(
+            "custom_components.minimax.conversation._call_service",
+            AsyncMock(return_value={"success": True}),
+        ) as mock_call:
+            results = await entity._execute_tool_calls(tool_calls, [])
+        assert results[0]["type"] == "tool_result"
+        assert results[0]["tool_use_id"] == "call_1"
+        mock_call.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_service_returns_error(self, entity, hass):
+        """Test _execute_tool_calls handles service errors."""
+        tool_calls = [
+            {
+                "id": "call_1",
+                "name": "light.turn_on",
+                "input": {"entity_id": "light.broken"},
+            }
+        ]
+        with patch(
+            "custom_components.minimax.conversation._call_service",
+            AsyncMock(return_value={"success": False, "error": "service boom"}),
+        ):
+            results = await entity._execute_tool_calls(tool_calls, [])
+        assert "service boom" in results[0]["content"]
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_no_name_skipped(self, entity):
+        """Test _execute_tool_calls skips calls with no name."""
+        results = await entity._execute_tool_calls(
+            [{"id": "x", "name": "", "input": {}}], []
+        )
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_call_service_success(self):
+        """Test _call_service returns success dict."""
+        hass = MagicMock()
+        hass.services.async_call = AsyncMock(return_value={"result": "ok"})
+        result = await minimax_conversation._call_service(
+            hass, "light", "turn_on", {"entity_id": "light.x"}
+        )
+        assert result == {"success": True, "result": {"result": "ok"}}
+
+    @pytest.mark.asyncio
+    async def test_call_service_exception(self):
+        """Test _call_service returns error dict on exception."""
+        hass = MagicMock()
+        hass.services.async_call = AsyncMock(side_effect=Exception("boom"))
+        result = await minimax_conversation._call_service(
+            hass, "light", "turn_on", {"entity_id": "light.x"}
+        )
+        assert result["success"] is False
+        assert "boom" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_get_homeassistant_tools_empty_when_no_key_domains(self, hass):
+        """Test _get_homeassistant_tools returns empty when no key domains match."""
+        hass.services.async_services.return_value = {
+            "not_a_key_domain": {
+                "service": {
+                    "description": "x",
+                    "fields": {},
+                }
+            }
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert tools == []
+
+    @pytest.mark.asyncio
+    async def test_forget_user_fact_no_fact_arg(self, entity):
+        """Test _execute_memory_tool with empty fact for forget."""
+        result = await entity._execute_memory_tool("forget_user_fact", {"fact": ""})
+        assert "No fact specified" in result
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_no_domain_separator(self, entity):
+        """Test _execute_tool_calls marks invalid name without dot separator."""
+        results = await entity._execute_tool_calls(
+            [{"id": "call_1", "name": "no_dot", "input": {}}], []
+        )
+        assert "Invalid tool name" in results[0]["content"]
+
+
+class TestConversationEntityCoverage:
+    """Additional tests to close remaining coverage gaps."""
+
+    @pytest.fixture
+    def mock_client(self):
+        """Create a mock API client."""
+        from custom_components.minimax.api import MiniMaxApiClient
+
+        client = MagicMock(spec=MiniMaxApiClient)
+        client.async_chat = AsyncMock()
+        client.async_get_supported_voices = MagicMock(return_value=[])
+        return client
+
+    @pytest.fixture
+    def mock_memory_store(self):
+        """Create a mock memory store."""
+        with patch("custom_components.minimax.conversation.MemoryStore") as mock:
+            instance = MagicMock()
+            instance.async_add_fact = AsyncMock(return_value="mem_id_1")
+            instance.async_get_facts = AsyncMock(
+                return_value=[
+                    {"id": "m1", "fact": "User likes coffee", "category": "preference"}
+                ]
+            )
+            instance.async_remove_fact = AsyncMock(return_value=True)
+            instance.async_clear = AsyncMock()
+            instance.async_get_memory_count = AsyncMock(return_value=3)
+            instance.set_hass = MagicMock()
+            mock.return_value = instance
+            yield instance
+
+    @pytest.fixture
+    def entity(self, hass, mock_client, mock_memory_store):
+        """Create a conversation entity."""
+        entry = _make_config_entry()
+        subentry = _make_subentry()
+        entry.subentries = {"conversation": subentry}
+
+        entity = minimax_conversation.MiniMaxConversationEntity(
+            entry=entry,
+            subentry=subentry,
+            client=mock_client,
+        )
+        entity.hass = hass
+        return entity
+
+    def test_get_homeassistant_tools_non_key_domain_skipped(self, hass):
+        """Domains not in key_domains are skipped (line 120)."""
+        hass.services.async_services.return_value = {
+            "homeassistant": {
+                "turn_on": {
+                    "description": "ok",
+                    "fields": {"entity_id": {"selector": {"entity_id": {}}}},
+                }
+            },
+            "other_random_domain": {
+                "service": {
+                    "description": "x",
+                    "fields": {},
+                }
+            },
+        }
+        tools = minimax_conversation._get_homeassistant_tools(hass)
+        names = [t["name"] for t in tools]
+        assert all("other_random_domain" not in n for n in names)
+
+    def test_trim_conversation_history_handles_list_content(self):
+        """Test _trim_conversation_history handles list content (line 189)."""
+        msgs = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "Hello "},
+                    {"type": "text", "text": "world"},
+                    {"type": "image", "source": {"data": "ignored"}},
+                ],
+            }
+        ]
+        result = minimax_conversation._trim_conversation_history(msgs, max_tokens=100)
+        assert len(result) == 1
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_remember_fact(self, entity, mock_memory_store):
+        """Test _execute_tool_calls with remember_user_fact (lines 393-401)."""
+        results = await entity._execute_tool_calls(
+            [
+                {
+                    "id": "call_mem_1",
+                    "name": "remember_user_fact",
+                    "input": {"fact": "User likes tea", "category": "preference"},
+                }
+            ],
+            [],
+        )
+        assert len(results) == 1
+        assert results[0]["type"] == "tool_result"
+        assert results[0]["tool_use_id"] == "call_mem_1"
+        mock_memory_store.async_add_fact.assert_awaited_once_with(
+            "User likes tea", "preference"
+        )
+
+    @pytest.mark.asyncio
+    async def test_execute_tool_calls_forget_all_facts(self, entity, mock_memory_store):
+        """Test _execute_tool_calls with forget_all_user_facts tool."""
+        results = await entity._execute_tool_calls(
+            [{"id": "call_forget", "name": "forget_all_user_facts", "input": {}}],
+            [],
+        )
+        assert len(results) == 1
+        mock_memory_store.async_clear.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_chat_with_api_propagates_non_tool_id_error(
+        self, entity, mock_client
+    ):
+        """Test _chat_with_api re-raises non-tool-id errors (line 562)."""
+        call_count = {"n": 0}
+
+        async def chat_side_effect(*args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                return {
+                    "success": True,
+                    "content": [{"type": "text", "text": "First"}],
+                    "tool_calls": [
+                        {"id": "tc_1", "name": "light.turn_on", "input": {}}
+                    ],
+                }
+            raise Exception("Some unexpected error")  # noqa: TRY002
+
+        mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
+
+        with pytest.raises(Exception, match="Some unexpected error"):
+            await entity._chat_with_api(
+                system_prompt="",
+                messages=[],
+                tools=[],
+                model="test-model",
+            )
+
+    @pytest.mark.asyncio
+    async def test_memory_section_appended_to_system_prompt(
+        self, entity, hass, mock_client
+    ):
+        """Test that memory section is appended to system_prompt (line 640)."""
+        entity._memory_enabled = True
+        entity._memory_store = MagicMock()
+        entity._memory_store.async_get_facts = AsyncMock(
+            return_value=[
+                {"id": "m1", "fact": "User likes coffee", "category": "preference"}
+            ]
+        )
+
+        mock_client.async_chat = AsyncMock(
+            return_value={"success": True, "text": "Sure thing!"}
+        )
+
+        user_input = conversation.ConversationInput(
+            text="Hello",
+            context=Context(user_id=None),
+            conversation_id=None,
+            device_id=None,
+            satellite_id=None,
+            language="en-US",
+            agent_id="agent_id",
+        )
+
+        with (
+            patch(
+                "custom_components.minimax.conversation._get_homeassistant_tools",
+                return_value=[],
+            ),
+            patch(
+                "custom_components.minimax.conversation._build_system_prompt",
+                return_value="You are a helpful assistant.",
+            ),
+        ):
+            result = await entity.async_process(user_input)
+
+        assert result.response.speech["plain"]["speech"] == "Sure thing!"

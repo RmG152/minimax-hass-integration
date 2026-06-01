@@ -3,7 +3,7 @@
 import hashlib
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import voluptuous as vol
 from voluptuous_openapi import convert
@@ -16,6 +16,7 @@ from homeassistant.helpers import llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
+from . import MiniMaxConfigEntry
 from .api import MiniMaxApiClient
 from .const import (
     AI_TASK_TIMEOUT,
@@ -25,9 +26,6 @@ from .const import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_MODEL,
 )
-
-if TYPE_CHECKING:
-    type MiniMaxConfigEntry = ConfigEntry[MiniMaxApiClient]
 
 ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax."
 

@@ -20,6 +20,16 @@ sys.modules["haffmpeg.tools"].IMAGE_JPEG = "image_jpeg"
 sys.modules["haffmpeg.tools"].FFVersion = MagicMock
 sys.modules["haffmpeg.tools"].ImageFrame = MagicMock
 
+# Mock turbojpeg (HA optional dependency not available on Windows)
+# Required by homeassistant.components.camera which ai_task imports
+_turbojpeg = types.ModuleType("turbojpeg")
+_turbojpeg.TurboJPEG = MagicMock
+_turbojpeg.TJCS_RGB = 0
+_turbojpeg.TJCS_BGR = 1
+_turbojpeg.TJPF_BGR = 0
+_turbojpeg.TJPF_RGB = 1
+sys.modules["turbojpeg"] = _turbojpeg
+
 
 @pytest.fixture(name="skip_notifications")
 def skip_notifications_fixture():
