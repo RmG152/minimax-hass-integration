@@ -216,38 +216,14 @@ class MiniMaxT2AWebSocketClient:
                 if msg.type != WSMsgType.TEXT:
                     _LOGGER.debug("MiniMax TTS WS read: non-text msg type=%s", msg.type)
                     break
-                try:
-                    data = json.loads(msg.data)
-                except (TypeError, ValueError):
-                    _LOGGER.debug(
-                        "MiniMax TTS WS read: skipping invalid JSON: %r", msg.data
-                    )
-                    continue
-                if data.get("event") == self._EVENT_TASK_ERROR:
-                    _LOGGER.error("MiniMax TTS task_error: %s", data)
-                    break
-                audio_hex = (data.get("data") or {}).get("audio")
-                if audio_hex:
-                    try:
-                        audio_bytes_block = bytes.fromhex(audio_hex)
-                    except (ValueError, TypeError):
-                        _LOGGER.debug(
-                            "MiniMax TTS WS read: bad audio hex (len=%d)",
-                            len(audio_hex),
-                        )
-                    else:
-                        audio_chunks += 1
-                        audio_bytes += len(audio_bytes_block)
-                        await queue.put(audio_bytes_block)
-                if (
-                    data.get("is_final")
-                    or data.get("event") == self._EVENT_TASK_FINISHED
-                ):
-                    _LOGGER.debug(
-                        "MiniMax TTS WS read: stream end (event=%s is_final=%s)",
-                        data.get("event"),
-                        data.get("is_final"),
-                    )
+                (
+                    should_break,
+                    chunks_added,
+                    bytes_added,
+                ) = await self._handle_read_message(msg.data, queue)
+                audio_chunks += chunks_added
+                audio_bytes += bytes_added
+                if should_break:
                     break
         except ClientError as err:
             _LOGGER.debug("MiniMax TTS WebSocket read error: %s", err)
@@ -258,3 +234,55 @@ class MiniMaxT2AWebSocketClient:
                 audio_bytes,
             )
             await queue.put(None)
+
+    async def _handle_read_message(
+        self,
+        raw: str,
+        queue: asyncio.Queue[bytes | None],
+    ) -> tuple[bool, int, int]:
+        """Process a single TEXT message.
+
+        Returns ``(should_break, audio_chunks_added, audio_bytes_added)``.
+        """
+        data = self._safe_parse_json(raw)
+        if data is None:
+            return False, 0, 0
+        if data.get("event") == self._EVENT_TASK_ERROR:
+            _LOGGER.error("MiniMax TTS task_error: %s", data)
+            return True, 0, 0
+
+        audio_hex = (data.get("data") or {}).get("audio") or ""
+        chunks_added, bytes_added = 0, 0
+        if audio_hex:
+            chunk = self._decode_audio_chunk(audio_hex)
+            if chunk is not None:
+                chunks_added = 1
+                bytes_added = len(chunk)
+                await queue.put(chunk)
+
+        if data.get("is_final") or data.get("event") == self._EVENT_TASK_FINISHED:
+            _LOGGER.debug(
+                "MiniMax TTS WS read: stream end (event=%s is_final=%s)",
+                data.get("event"),
+                data.get("is_final"),
+            )
+            return True, chunks_added, bytes_added
+        return False, chunks_added, bytes_added
+
+    @staticmethod
+    def _safe_parse_json(raw: str) -> dict | None:
+        """Parse a WebSocket text frame as JSON, logging and returning None on error."""
+        try:
+            return json.loads(raw)
+        except (TypeError, ValueError):
+            _LOGGER.debug("MiniMax TTS WS read: skipping invalid JSON: %r", raw)
+            return None
+
+    @staticmethod
+    def _decode_audio_chunk(audio_hex: str) -> bytes | None:
+        """Decode a hex-encoded audio payload, returning None if the hex is bad."""
+        try:
+            return bytes.fromhex(audio_hex)
+        except (TypeError, ValueError):
+            _LOGGER.debug("MiniMax TTS WS read: bad audio hex (len=%d)", len(audio_hex))
+            return None

@@ -363,8 +363,7 @@ class TestTTSStreaming:
             minimax_tts.MiniMaxT2AWebSocketClient, "stream", new=fake_stream
         ):
             response = await entity.async_stream_tts_audio(request)
-            async for _ in response.data_gen:
-                pass
+            _ = [chunk async for chunk in response.data_gen]
 
         assert "Hello world." in captured_sentences
 
@@ -375,8 +374,7 @@ class TestTTSStreaming:
         request = self._make_request(chunks=["Hi."])
 
         async def fake_stream(self, sentences):
-            if False:  # pragma: no cover - makes this an async generator
-                yield b""
+            yield b""  # mark as async generator; raises on next __anext__
             raise HomeAssistantError("WS boom")
 
         with patch.object(
@@ -384,8 +382,7 @@ class TestTTSStreaming:
         ):
             response = await entity.async_stream_tts_audio(request)
             with pytest.raises(HomeAssistantError, match="WS boom"):
-                async for _ in response.data_gen:
-                    pass
+                _ = [chunk async for chunk in response.data_gen]
 
     @pytest.mark.asyncio
     async def test_streaming_splits_cjk_sentences(self, hass):
@@ -404,8 +401,7 @@ class TestTTSStreaming:
             minimax_tts.MiniMaxT2AWebSocketClient, "stream", new=fake_stream
         ):
             response = await entity.async_stream_tts_audio(request)
-            async for _chunk in response.data_gen:
-                pass
+            _ = [chunk async for chunk in response.data_gen]
 
         joined = " ".join(captured_sentences)
         assert "你好。" in joined

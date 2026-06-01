@@ -152,37 +152,53 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
         self, request: TTSAudioRequest
     ) -> AsyncGenerator[bytes]:
         """Accumulate text into sentences, stream audio chunks per sentence."""
-        detector = SentenceBoundaryDetector()
         sentences: asyncio.Queue[str | None] = asyncio.Queue()
+        feed_task = asyncio.create_task(
+            self._feed_detector(request, sentences),
+            name="minimax_tts_feed_detector",
+        )
+        ws_client = self._build_ws_client(request)
+        try:
+            async for audio_chunk in ws_client.stream(self._drain_sentences(sentences)):
+                yield audio_chunk
+        finally:
+            await self._cancel_feed(feed_task)
 
-        async def feed_detector() -> None:
-            try:
-                async for chunk in request.message_gen:
-                    for sentence in detector.add_chunk(chunk):
-                        cleaned = self._postprocess_sentence(sentence)
-                        if cleaned:
-                            await sentences.put(cleaned)
-                tail = detector.finish()
-                if tail:
-                    cleaned = self._postprocess_sentence(tail)
+    async def _feed_detector(
+        self,
+        request: TTSAudioRequest,
+        sentences: asyncio.Queue[str | None],
+    ) -> None:
+        """Read message chunks, split into sentences, enqueue them."""
+        detector = SentenceBoundaryDetector()
+        try:
+            async for chunk in request.message_gen:
+                for sentence in detector.add_chunk(chunk):
+                    cleaned = self._postprocess_sentence(sentence)
                     if cleaned:
                         await sentences.put(cleaned)
-            finally:
-                await sentences.put(None)
+            tail = detector.finish()
+            cleaned_tail = self._postprocess_sentence(tail) if tail else ""
+            if cleaned_tail:
+                await sentences.put(cleaned_tail)
+        finally:
+            await sentences.put(None)
 
-        feed_task = asyncio.create_task(
-            feed_detector(), name="minimax_tts_feed_detector"
-        )
+    @staticmethod
+    async def _drain_sentences(
+        sentences: asyncio.Queue[str | None],
+    ) -> AsyncIterator[str]:
+        """Yield sentences from the queue until the sentinel None is seen."""
+        while True:
+            sentence = await sentences.get()
+            if sentence is None:
+                return
+            yield sentence
 
-        async def sentence_iter() -> AsyncIterator[str]:
-            while True:
-                sentence = await sentences.get()
-                if sentence is None:
-                    return
-                yield sentence
-
+    def _build_ws_client(self, request: TTSAudioRequest) -> MiniMaxT2AWebSocketClient:
+        """Construct the WebSocket TTS client from subentry + request options."""
         subentry_data = self.subentry.data
-        ws_client = MiniMaxT2AWebSocketClient(
+        return MiniMaxT2AWebSocketClient(
             hass=self.hass,
             api_key=self._client.api_key,
             model=subentry_data.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
@@ -197,14 +213,14 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
             audio_format=self._resolve_streaming_format(request.options),
         )
 
-        try:
-            async for audio_chunk in ws_client.stream(sentence_iter()):
-                yield audio_chunk
-        finally:
-            if not feed_task.done():
-                feed_task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await feed_task
+    @staticmethod
+    async def _cancel_feed(feed_task: asyncio.Task[None]) -> None:
+        """Cancel the feed task and swallow the CancelledError."""
+        if feed_task.done():
+            return
+        feed_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await feed_task
 
     @staticmethod
     def _postprocess_sentence(sentence: str) -> str:

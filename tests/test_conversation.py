@@ -911,11 +911,11 @@ class TestConversationEntityExtra:
         }
         call_count = {"n": 0}
 
-        async def chat_side_effect(*args, **kwargs):
+        def chat_side_effect(*args, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return tool_response
-            raise Exception("tool id not found")  # noqa: TRY002
+            raise RuntimeError("tool id not found")
 
         mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
         with patch.object(entity, "_execute_tool_calls", AsyncMock(return_value=[])):
@@ -952,11 +952,11 @@ class TestConversationEntityExtra:
         }
         call_count = {"n": 0}
 
-        async def chat_side_effect(*args, **kwargs):
+        def chat_side_effect(*args, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return tool_response
-            raise Exception("tool id not found")  # noqa: TRY002
+            raise RuntimeError("tool id not found")
 
         mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
         with patch.object(entity, "_execute_tool_calls", AsyncMock(return_value=[])):
@@ -1205,7 +1205,7 @@ class TestConversationEntityCoverage:
         """Test _chat_with_api re-raises non-tool-id errors (line 562)."""
         call_count = {"n": 0}
 
-        async def chat_side_effect(*args, **kwargs):
+        def chat_side_effect(*args, **kwargs):
             call_count["n"] += 1
             if call_count["n"] == 1:
                 return {
@@ -1215,11 +1215,11 @@ class TestConversationEntityCoverage:
                         {"id": "tc_1", "name": "light.turn_on", "input": {}}
                     ],
                 }
-            raise Exception("Some unexpected error")  # noqa: TRY002
+            raise RuntimeError("Some unexpected error")
 
         mock_client.async_chat = AsyncMock(side_effect=chat_side_effect)
 
-        with pytest.raises(Exception, match="Some unexpected error"):
+        with pytest.raises(RuntimeError, match="Some unexpected error"):
             await entity._chat_with_api(
                 system_prompt="",
                 messages=[],

@@ -17,11 +17,16 @@ import argparse
 import asyncio
 import os
 from pathlib import Path
+import re
 import sys
 
 import httpx
 
 GET_VOICE_API = "https://api.minimax.io/v1/get_voice"
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+CONST_PATH = PROJECT_ROOT / "custom_components" / "minimax" / "const.py"
+SAFE_VOICE_ID = re.compile(r"^[A-Za-z0-9_.\- ]+$")
 
 LANGUAGE_PREFIX_MAP = {
     "English_": "en-US",
@@ -135,15 +140,40 @@ async def fetch_voices(api_key: str) -> list[str]:
     return [v["voice_id"] for v in voices]
 
 
-def _update_const_py(voices):
-    const_path = Path("custom_components/minimax/const.py")
-    if not const_path.exists():
-        const_path = Path("minimax/const.py")
-    if not const_path.exists():
-        sys.stderr.write("Could not find const.py\n")
+def _sanitize_voices(voices: list[str]) -> list[str]:
+    """Drop any voice ID that does not match the safe character set.
+
+    Voice IDs come from the remote API and are embedded as Python string
+    literals in const.py. Restricting to a known-safe charset ensures a
+    malicious or malformed ID cannot break out of the literal or smuggle
+    extra code into the generated source.
+    """
+    safe: list[str] = []
+    for voice_id in voices:
+        if not isinstance(voice_id, str) or not SAFE_VOICE_ID.match(voice_id):
+            sys.stderr.write(f"Skipping unsafe voice_id: {voice_id!r}\n")
+            continue
+        safe.append(voice_id)
+    return safe
+
+
+def _resolve_const_path() -> Path:
+    """Return the absolute path to const.py, refusing to leave PROJECT_ROOT."""
+    resolved = CONST_PATH.resolve()
+    if PROJECT_ROOT not in resolved.parents and resolved != PROJECT_ROOT:
+        sys.stderr.write(f"Refusing to write outside project root: {resolved}\n")
         sys.exit(1)
+    if not resolved.exists():
+        sys.stderr.write(f"Could not find const.py at {resolved}\n")
+        sys.exit(1)
+    return resolved
+
+
+def _update_const_py(voices: list[str]) -> None:
+    safe_voices = _sanitize_voices(voices)
+    const_path = _resolve_const_path()
     content = const_path.read_text(encoding="utf-8")
-    formatted = _format_voice_ids(voices)
+    formatted = _format_voice_ids(safe_voices)
 
     start_marker = "# --- VOICE_IDS START ---"
     end_marker = "# --- VOICE_IDS END ---"
@@ -204,7 +234,12 @@ async def main() -> None:
     formatted = _format_voice_ids(voice_ids)
 
     if args.output == "file":
-        output_path = Path("voices_output.py")
+        safe_voice_ids = _sanitize_voices(voice_ids)
+        formatted = _format_voice_ids(safe_voice_ids)
+        output_path = (PROJECT_ROOT / "voices_output.py").resolve()
+        if PROJECT_ROOT not in output_path.parents:
+            sys.stderr.write(f"Refusing to write outside project root: {output_path}\n")
+            sys.exit(1)
         output_path.write_text(
             f"# Auto-generated voice list from MiniMax API\n\n"
             f"VOICE_IDS = {{\n{formatted}\n}}\n",

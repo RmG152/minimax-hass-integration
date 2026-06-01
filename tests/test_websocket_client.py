@@ -1,5 +1,6 @@
 """Tests for the streaming MiniMax T2A v2 WebSocket client."""
 
+import inspect
 import json
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -63,7 +64,7 @@ def _build_websocket_mock(
 
     queue: list[Any] = [_make_text_msg(e) for e in (receive_events + iter_events)]
 
-    async def _receive() -> Any:
+    def _receive() -> Any:
         if not queue:
             return _make_closing_msg()
         return queue.pop(0)
@@ -74,7 +75,7 @@ def _build_websocket_mock(
     sent: list[dict[str, Any]] = []
     ws.sent = sent
 
-    async def _send_json(payload: dict[str, Any]) -> None:
+    def _send_json(payload: dict[str, Any]) -> None:
         sent.append(payload)
 
     ws.send_json = AsyncMock(side_effect=_send_json)
@@ -94,7 +95,11 @@ class _ReceiveIterator:
 
     async def __anext__(self) -> Any:
         """Return the next message or stop iteration on close/empty."""
-        msg = await self._receive()
+        result = self._receive()
+        if inspect.isawaitable(result):
+            msg = await result
+        else:
+            msg = result
         if msg.type in (
             aiohttp.WSMsgType.CLOSE,
             aiohttp.WSMsgType.CLOSED,
@@ -106,8 +111,8 @@ class _ReceiveIterator:
 
 async def _empty_text_chunks() -> Any:
     """Async generator that yields nothing and exits."""
-    if False:
-        yield ""
+    return
+    yield  # noqa: PLW0101 - mark as async generator
 
 
 def _make_client(hass: MagicMock, **overrides: Any) -> MiniMaxT2AWebSocketClient:
@@ -149,8 +154,8 @@ class TestClientInit:
         assert client._model == TEST_MODEL
         assert client._voice_id == "English_Comedian"
         assert client._language_boost == "Chinese"
-        assert client._speed == 1.5
-        assert client._vol == 0.7
+        assert client._speed == pytest.approx(1.5)
+        assert client._vol == pytest.approx(0.7)
         assert client._pitch == -3
         assert client._audio_format == "opus"
         assert client._sample_rate == 44100
@@ -217,8 +222,7 @@ class TestStreamLifecycle:
                 vol=0.9,
                 pitch=2,
             )
-            async for _chunk in client.stream(_empty_text_chunks()):
-                pass
+            _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
         sent_events = [m["event"] for m in ws.sent]
         assert sent_events[0] == "task_start"
@@ -245,8 +249,7 @@ class TestStreamLifecycle:
             return_value=mock_session,
         ):
             client = _make_client(MagicMock())
-            async for _ in client.stream(two_sentences()):
-                pass
+            _ = [chunk async for chunk in client.stream(two_sentences())]
 
         sent_events = [m["event"] for m in ws.sent]
         assert sent_events == [
@@ -292,8 +295,7 @@ class TestStreamLifecycle:
             return_value=mock_session,
         ):
             client = _make_client(MagicMock())
-            async for _ in client.stream(_empty_text_chunks()):
-                pass
+            _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
         assert ws.sent[-1]["event"] == "task_finish"
 
@@ -308,8 +310,7 @@ class TestStreamLifecycle:
             return_value=mock_session,
         ):
             client = _make_client(MagicMock())
-            async for _ in client.stream(_empty_text_chunks()):
-                pass
+            _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
         ws.close.assert_awaited()
 
@@ -329,8 +330,7 @@ class TestStreamLifecycle:
             return_value=mock_session,
         ):
             client = _make_client(MagicMock())
-            async for _ in client.stream(mixed_chunks()):
-                pass
+            _ = [chunk async for chunk in client.stream(mixed_chunks())]
 
         continue_payloads = [m for m in ws.sent if m["event"] == "task_continue"]
         assert len(continue_payloads) == 1
@@ -352,8 +352,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="during connect"):
-                async for _ in client.stream(_empty_text_chunks()):
-                    pass
+                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_unexpected_connect_event(self, mock_session):
@@ -367,8 +366,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="expected connected_success"):
-                async for _ in client.stream(_empty_text_chunks()):
-                    pass
+                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
     @pytest.mark.asyncio
     async def test_stream_wraps_connection_errors(self, mock_session):
@@ -381,8 +379,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="WebSocket error"):
-                async for _ in client.stream(_empty_text_chunks()):
-                    pass
+                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_invalid_json_during_handshake(self, mock_session):
@@ -405,8 +402,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="invalid JSON"):
-                async for _ in client.stream(_empty_text_chunks()):
-                    pass
+                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_close_during_handshake(self, mock_session):
@@ -426,5 +422,40 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="closed unexpectedly"):
-                async for _ in client.stream(_empty_text_chunks()):
-                    pass
+                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+
+    @pytest.mark.asyncio
+    async def test_stream_ends_on_task_error_during_streaming(self, mock_session):
+        """A task_error during streaming logs and ends the stream cleanly."""
+        ws = _build_websocket_mock(
+            iter_events=[{"event": "task_error", "base_resp": {"status_msg": "nope"}}]
+        )
+        mock_session.ws_connect = AsyncMock(return_value=ws)
+
+        with patch(
+            "custom_components.minimax.websocket_client.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            client = _make_client(MagicMock())
+            chunks = [c async for c in client.stream(_empty_text_chunks())]
+        assert chunks == []
+
+    @pytest.mark.asyncio
+    async def test_stream_skips_invalid_json_during_streaming(self, mock_session):
+        """A non-JSON message during streaming is skipped, not fatal."""
+        bad_msg = MagicMock()
+        bad_msg.type = aiohttp.WSMsgType.TEXT
+        bad_msg.data = "{not json"
+        good_msg = _make_text_msg({"data": {"audio": "deadbeef"}, "is_final": True})
+        sequence: list[Any] = [bad_msg, good_msg]
+        ws = _build_websocket_mock()
+        ws.__aiter__ = MagicMock(return_value=_ReceiveIterator(lambda: sequence.pop(0)))
+        mock_session.ws_connect = AsyncMock(return_value=ws)
+
+        with patch(
+            "custom_components.minimax.websocket_client.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            client = _make_client(MagicMock())
+            chunks = [c async for c in client.stream(_empty_text_chunks())]
+        assert chunks == [bytes.fromhex("deadbeef")]
