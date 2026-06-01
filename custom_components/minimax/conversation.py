@@ -82,6 +82,18 @@ def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -
         return f"{user_prompt}{entities_info}"
 
 
+def _service_attr(service_data: Any, name: str, default: Any = None) -> Any:
+    """Read an attribute from a HA service entry.
+
+    Supports both the dict shape used by tests and older HA versions, and
+    the `Service` object shape used by HA 2025.12+ where `description` and
+    `fields` are not attributes and the value lives in `services.yaml`.
+    """
+    if isinstance(service_data, dict):
+        return service_data.get(name, default)
+    return getattr(service_data, name, default)
+
+
 def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Get Home Assistant services as tools for MiniMax."""
     tools = []
@@ -110,8 +122,8 @@ def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
                 for service_name, service_data in services[domain].items():
                     descriptions[domain][service_name] = {
                         "name": service_name,
-                        "description": service_data.get("description", ""),
-                        "fields": service_data.get("fields", {}),
+                        "description": _service_attr(service_data, "description", ""),
+                        "fields": _service_attr(service_data, "fields", {}),
                     }
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get service descriptions: %s", err)

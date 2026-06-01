@@ -3,12 +3,13 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+import voluptuous as vol
 
 from custom_components.minimax import conversation as minimax_conversation
 from custom_components.minimax.const import RECOMMENDED_CONVERSATION_OPTIONS
 from homeassistant.components import conversation
 from homeassistant.const import MATCH_ALL
-from homeassistant.core import Context
+from homeassistant.core import Context, Service
 
 
 def _make_subentry(subentry_type="conversation", data=None, title=None):
@@ -664,6 +665,31 @@ class TestGetHomeAssistantTools:
         hass.services.async_services.side_effect = Exception("Service error")
         tools = minimax_conversation._get_homeassistant_tools(hass)
         assert tools == []
+
+    def test_with_service_object_does_not_raise(self, hass, caplog):
+        """Regression: HA 2025.12+ exposes Service objects, not dicts.
+
+        `_service_attr` must accept both shapes so we no longer log
+        "'Service' object has no attribute 'get'" in production.
+        """
+        async def _noop(*args, **kwargs):
+            return None
+
+        light_turn_on = Service(
+            _noop,
+            vol.Schema({vol.Optional("brightness"): int}),
+            "light",
+            "turn_on",
+        )
+        hass.services.async_services.return_value = {
+            "light": {"turn_on": light_turn_on},
+        }
+        with caplog.at_level("WARNING", "custom_components.minimax"):
+            tools = minimax_conversation._get_homeassistant_tools(hass)
+        assert len(tools) == 1
+        assert tools[0]["name"] == "light.turn_on"
+        assert "entity_id" in tools[0]["input_schema"]["properties"]
+        assert "Could not get service descriptions" not in caplog.text
 
     def test_with_field_having_schema(self, hass):
         """Test field_type stays string when schema is set."""
