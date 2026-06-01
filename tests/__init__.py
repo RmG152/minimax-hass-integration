@@ -32,6 +32,7 @@ class MockConfigEntry:
         self.runtime_data: Any = None
         self.state = ConfigEntryState.LOADED
         self._on_unload: list = []
+        self.update_listeners: list = []
 
     def add_to_hass(self, hass: Any) -> None:
         """Add this entry to hass."""
@@ -39,9 +40,8 @@ class MockConfigEntry:
 
     def add_update_listener(self, listener):
         """Register update listener and return unsubscribe callable."""
-        self._update_listeners = getattr(self, "_update_listeners", [])
-        self._update_listeners.append(listener)
-        return lambda: self._update_listeners.remove(listener)
+        self.update_listeners.append(listener)
+        return lambda: self.update_listeners.remove(listener)
 
     def async_on_unload(self, callback) -> None:
         """Register callback for unload."""
