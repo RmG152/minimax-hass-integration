@@ -667,12 +667,9 @@ class TestGetHomeAssistantTools:
         assert tools == []
 
     def test_with_service_object_does_not_raise(self, hass, caplog):
-        """Regression: HA 2025.12+ exposes Service objects, not dicts.
+        """HA 2025.12+ exposes Service objects, not dicts."""
 
-        `_service_attr` must accept both shapes so we no longer log
-        "'Service' object has no attribute 'get'" in production.
-        """
-        async def _noop(*args, **kwargs):
+        def _noop(*args, **kwargs):
             return None
 
         light_turn_on = Service(
