@@ -26,6 +26,7 @@ from .const import (
     RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_IMAGE_MODEL,
 )
+from .entity import MiniMaxBaseEntity
 
 ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax."
 
@@ -175,7 +176,7 @@ async def async_setup_entry(
         )
 
 
-class MiniMaxAITaskEntity(ai_task.AITaskEntity):
+class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
     """MiniMax AI Task entity."""
 
     _attr_supported_features = (
@@ -190,11 +191,7 @@ class MiniMaxAITaskEntity(ai_task.AITaskEntity):
         client: MiniMaxApiClient,
     ) -> None:
         """Initialize the entity."""
-        self.entry = entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
+        super().__init__(entry, subentry, client)
 
         if subentry.data.get(CONF_RECOMMENDED) or "-image" in subentry.data.get(
             CONF_CHAT_MODEL, ""

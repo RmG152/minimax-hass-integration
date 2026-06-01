@@ -57,7 +57,7 @@ class TestMiniMaxTTSEntity:
         entry = _make_config_entry()
         subentry = _make_subentry()
         return minimax_tts.MiniMaxTTSEntity(
-            config_entry=entry,
+            entry=entry,
             subentry=subentry,
             client=mock_client,
         )
@@ -179,7 +179,7 @@ class TestMiniMaxTTSEntity:
         subentry_data[CONF_TTS_MODEL] = "speech-2.8-turbo"
         subentry = _make_subentry(data=subentry_data)
         entity = minimax_tts.MiniMaxTTSEntity(
-            config_entry=entry,
+            entry=entry,
             subentry=subentry,
             client=mock_client,
         )

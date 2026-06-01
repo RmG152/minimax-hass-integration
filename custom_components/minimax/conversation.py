@@ -35,6 +35,7 @@ from .const import (
     LOGGER,
     RECOMMENDED_CHAT_MODEL,
 )
+from .entity import MiniMaxBaseEntity
 from .memory import MemoryStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -250,6 +251,7 @@ async def async_setup_entry(
 
 
 class MiniMaxConversationEntity(
+    MiniMaxBaseEntity,
     conversation.ConversationEntity,
     conversation.AbstractConversationAgent,
 ):
@@ -261,11 +263,7 @@ class MiniMaxConversationEntity(
         self, entry: ConfigEntry, subentry: ConfigSubentry, client: MiniMaxApiClient
     ) -> None:
         """Initialize the agent."""
-        self.entry = entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
+        super().__init__(entry, subentry, client)
         self._tts_enabled = subentry.data.get(CONF_CONVERSATION_TTS_ENABLED, True)
         self._max_tokens = max(
             subentry.data.get(

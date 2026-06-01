@@ -18,11 +18,10 @@ from homeassistant.components.tts import (
     TtsAudioType,
     Voice,
 )
-from homeassistant.config_entries import ConfigEntry, ConfigSubentry
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from .api import MiniMaxApiClient
 from .const import (
     CONF_LANGUAGE_BOOST,
     CONF_PITCH,
@@ -38,6 +37,7 @@ from .const import (
     RECOMMENDED_TTS_MODEL,
     VOICE_IDS,
 )
+from .entity import MiniMaxBaseEntity
 from .websocket_client import MiniMaxT2AWebSocketClient
 
 _LOGGER = logging.getLogger(__name__)
@@ -63,25 +63,12 @@ async def async_setup_entry(
         )
 
 
-class MiniMaxTTSEntity(TextToSpeechEntity):
+class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
     """MiniMax text-to-speech entity."""
 
     _attr_supported_options = [ATTR_VOICE]
     _attr_supported_languages = list(VOICE_IDS.keys())
     _attr_default_language = "en-US"
-
-    def __init__(
-        self,
-        config_entry: ConfigEntry,
-        subentry: ConfigSubentry,
-        client: MiniMaxApiClient,
-    ) -> None:
-        """Initialize the TTS entity."""
-        self.entry = config_entry
-        self.subentry = subentry
-        self._client = client
-        self._attr_name = subentry.title
-        self._attr_unique_id = subentry.subentry_id
 
     @cached_property
     def default_options(self) -> Mapping[str, Any]:

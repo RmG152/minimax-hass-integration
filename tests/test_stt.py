@@ -52,7 +52,7 @@ class TestMiniMaxSTTEntity:
         entry = _make_config_entry()
         subentry = _make_subentry()
         return minimax_stt.MiniMaxSTTEntity(
-            config_entry=entry,
+            entry=entry,
             subentry=subentry,
             client=mock_client,
         )
