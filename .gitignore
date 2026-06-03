@@ -45,3 +45,6 @@ Thumbs.db
 *.log
 /tests/__pycache__
 /.kilo
+/graphify-out
+/.opencode
+.github/copilot-instructions.md

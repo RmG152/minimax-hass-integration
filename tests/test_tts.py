@@ -294,26 +294,6 @@ class TestTTSStreaming:
         entity = self._make_entity(hass, subentry_data={})
         assert entity._resolve_streaming_format({}) == DEFAULT_STREAMING_FORMAT
 
-    def test_postprocess_sentence_strips_latin(self, hass):
-        """Latin sentences pass through (stripped)."""
-        result = minimax_tts.MiniMaxTTSEntity._postprocess_sentence("Hello world.")
-        assert result == "Hello world."
-
-    def test_postprocess_sentence_splits_cjk(self, hass):
-        """CJK sentences ending in 。！？ get re-split."""
-        result = minimax_tts.MiniMaxTTSEntity._postprocess_sentence(
-            "你好。今天天气真好！明天会更好吗？"
-        )
-        assert "你好。" in result
-        assert "今天天气真好！" in result
-        assert "明天会更好吗？" in result
-        assert result.count("。") + result.count("！") + result.count("？") >= 2
-
-    def test_postprocess_sentence_no_cjk_returns_stripped(self, hass):
-        """If no CJK terminator present, return stripped sentence as-is."""
-        result = minimax_tts.MiniMaxTTSEntity._postprocess_sentence("  plain text  ")
-        assert result == "plain text"
-
     @pytest.mark.asyncio
     async def test_streaming_picks_option_format(self, hass):
         """async_stream_tts_audio uses option format when provided."""
@@ -347,17 +327,18 @@ class TestTTSStreaming:
         assert response.extension == "pcm"
 
     @pytest.mark.asyncio
-    async def test_streaming_sends_sentence_chunks(self, hass):
-        """WebSocket receives one chunk per complete sentence."""
+    async def test_streaming_forwards_message_gen_to_ws_client(self, hass):
+        """The request's message_gen is forwarded directly to the WS client."""
         entity = self._make_entity(hass)
-        request = self._make_request(chunks=["Hello world. "])
+        request = self._make_request(
+            chunks=["First chunk. ", "Second chunk. ", "Third chunk."]
+        )
 
-        captured_sentences: list[str] = []
+        captured_chunks: list[str] = []
 
-        async def fake_stream(self, sentences):
-            async for sentence in sentences:
-                captured_sentences.append(sentence)
-                yield b"audio"
+        async def fake_stream(self, message_gen):
+            captured_chunks.extend([chunk async for chunk in message_gen])
+            yield b"audio"
 
         with patch.object(
             minimax_tts.MiniMaxT2AWebSocketClient, "stream", new=fake_stream
@@ -365,7 +346,7 @@ class TestTTSStreaming:
             response = await entity.async_stream_tts_audio(request)
             _ = [chunk async for chunk in response.data_gen]
 
-        assert "Hello world." in captured_sentences
+        assert captured_chunks == ["First chunk. ", "Second chunk. ", "Third chunk."]
 
     @pytest.mark.asyncio
     async def test_streaming_propagates_home_assistant_error(self, hass):
@@ -373,8 +354,10 @@ class TestTTSStreaming:
         entity = self._make_entity(hass)
         request = self._make_request(chunks=["Hi."])
 
-        async def fake_stream(self, sentences):
-            yield b""  # mark as async generator; raises on next __anext__
+        async def fake_stream(self, message_gen):
+            async for _ in message_gen:
+                pass
+            yield b""
             raise HomeAssistantError("WS boom")
 
         with patch.object(
@@ -383,30 +366,6 @@ class TestTTSStreaming:
             response = await entity.async_stream_tts_audio(request)
             with pytest.raises(HomeAssistantError, match="WS boom"):
                 _ = [chunk async for chunk in response.data_gen]
-
-    @pytest.mark.asyncio
-    async def test_streaming_splits_cjk_sentences(self, hass):
-        """CJK text gets re-split into multiple sentence chunks."""
-        entity = self._make_entity(hass)
-        request = self._make_request(chunks=["你好。世界。"])
-
-        captured_sentences: list[str] = []
-
-        async def fake_stream(self, sentences):
-            async for sentence in sentences:
-                captured_sentences.append(sentence)
-                yield b"audio"
-
-        with patch.object(
-            minimax_tts.MiniMaxT2AWebSocketClient, "stream", new=fake_stream
-        ):
-            response = await entity.async_stream_tts_audio(request)
-            _ = [chunk async for chunk in response.data_gen]
-
-        joined = " ".join(captured_sentences)
-        assert "你好。" in joined
-        assert "世界。" in joined
-        assert len(captured_sentences) >= 2
 
 
 def _async_iter(items):

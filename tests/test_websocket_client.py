@@ -235,12 +235,14 @@ class TestStreamLifecycle:
         assert first["voice_setting"]["pitch"] == 2
 
     @pytest.mark.asyncio
-    async def test_stream_sends_one_task_continue_per_sentence(self, mock_session):
-        """Each text chunk is sent as a task_continue event."""
+    async def test_stream_sends_single_task_continue_with_buffered_text(
+        self, mock_session
+    ):
+        """The full buffered text is sent as a single task_continue event."""
         ws = _build_websocket_mock()
         mock_session.ws_connect = AsyncMock(return_value=ws)
 
-        async def two_sentences() -> Any:
+        async def two_chunks() -> Any:
             yield "First sentence. "
             yield "Second sentence."
 
@@ -249,18 +251,35 @@ class TestStreamLifecycle:
             return_value=mock_session,
         ):
             client = _make_client(MagicMock())
-            _ = [chunk async for chunk in client.stream(two_sentences())]
+            _ = [chunk async for chunk in client.stream(two_chunks())]
 
         sent_events = [m["event"] for m in ws.sent]
-        assert sent_events == [
-            "task_start",
-            "task_continue",
-            "task_continue",
-            "task_finish",
-        ]
+        assert sent_events == ["task_start", "task_continue", "task_finish"]
         continue_payloads = [m for m in ws.sent if m["event"] == "task_continue"]
-        assert continue_payloads[0]["text"] == "First sentence. "
-        assert continue_payloads[1]["text"] == "Second sentence."
+        assert len(continue_payloads) == 1
+        assert continue_payloads[0]["text"] == "First sentence. Second sentence."
+
+    @pytest.mark.asyncio
+    async def test_stream_concatenates_text_chunks(self, mock_session):
+        """Multiple text chunks are concatenated into one task_continue payload."""
+        ws = _build_websocket_mock()
+        mock_session.ws_connect = AsyncMock(return_value=ws)
+
+        async def many_chunks() -> Any:
+            yield "Hola. "
+            yield "Com va? "
+            yield "Avui fa un bon dia."
+
+        with patch(
+            "custom_components.minimax.websocket_client.async_get_clientsession",
+            return_value=mock_session,
+        ):
+            client = _make_client(MagicMock())
+            _ = [chunk async for chunk in client.stream(many_chunks())]
+
+        continue_payloads = [m for m in ws.sent if m["event"] == "task_continue"]
+        assert len(continue_payloads) == 1
+        assert continue_payloads[0]["text"] == "Hola. Com va? Avui fa un bon dia."
 
     @pytest.mark.asyncio
     async def test_stream_yields_audio_chunks_in_order(self, mock_session):
