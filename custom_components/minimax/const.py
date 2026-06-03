@@ -171,7 +171,6 @@ LANGUAGE_NAMES = {
     "fi-FI": "Finnish",
     "hi-IN": "Hindi",
 }
-
 # --- VOICE_IDS START ---
 VOICE_IDS = {
     "ar-SA": [
@@ -556,8 +555,6 @@ VOICE_IDS = {
     ],
 }
 # --- VOICE_IDS END ---
-
-
 RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_PROMPT: "You are EVA, a friendly Danish AI home assistant. You speak Danish. Be warm, direct and practical. Respond briefly and precisely in Danish.",
     CONF_RECOMMENDED: True,

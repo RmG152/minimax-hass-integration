@@ -216,12 +216,11 @@ def _update_const_py(voices: list[str]) -> None:
         sys.stderr.write("Could not find VOICE_IDS markers in const.py\n")
         sys.exit(1)
 
-    # Include the start marker, then the new block, then the end marker
-    new_content = (
-        content[:start_idx]
-        + f"{start_marker}\nVOICE_IDS = {{\n{formatted}\n}}\n{end_marker}\n"
-        + content[end_idx + len(end_marker) :]
-    )
+    # Include the start marker, then the new block, then the end marker.
+    # Strip surrounding newlines so the replacement is idempotent.
+    before = content[:start_idx].rstrip("\n")
+    after = content[end_idx + len(end_marker) :].lstrip("\n")
+    new_content = f"{before}\n{start_marker}\nVOICE_IDS = {{\n{formatted}\n}}\n{end_marker}\n{after}"
     const_path.write_text(new_content, encoding="utf-8")
     sys.stderr.write(f"Updated {const_path}\n")
 
