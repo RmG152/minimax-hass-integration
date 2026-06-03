@@ -558,7 +558,6 @@ VOICE_IDS = {
 # --- VOICE_IDS END ---
 
 
-
 RECOMMENDED_CONVERSATION_OPTIONS = {
     CONF_PROMPT: "You are EVA, a friendly Danish AI home assistant. You speak Danish. Be warm, direct and practical. Respond briefly and precisely in Danish.",
     CONF_RECOMMENDED: True,
