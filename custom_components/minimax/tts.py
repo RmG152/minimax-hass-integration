@@ -16,6 +16,7 @@ from homeassistant.components.tts import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -150,8 +151,12 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
     ) -> AsyncGenerator[bytes]:
         """Stream TTS audio via the WebSocket client."""
         ws_client = self._build_ws_client(request)
-        async for audio_chunk in ws_client.stream(request.message_gen):
-            yield audio_chunk
+        try:
+            async for audio_chunk in ws_client.stream(request.message_gen):
+                yield audio_chunk
+        except HomeAssistantError:
+            _LOGGER.exception("TTS stream failed for request %s", request)
+            return
 
     def _build_ws_client(self, request: TTSAudioRequest) -> MiniMaxT2AWebSocketClient:
         """Construct the WebSocket TTS client from subentry + request options."""
