@@ -1,14 +1,10 @@
 """Text to speech support for MiniMax."""
 
-import asyncio
-from collections.abc import AsyncGenerator, AsyncIterator, Mapping
-import contextlib
+from collections.abc import AsyncGenerator, Mapping
 import logging
-import re
 from typing import Any
 
 from propcache.api import cached_property
-from sentence_stream import SentenceBoundaryDetector
 
 from homeassistant.components.tts import (
     ATTR_VOICE,
@@ -20,6 +16,7 @@ from homeassistant.components.tts import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import (
@@ -41,8 +38,6 @@ from .entity import MiniMaxBaseEntity
 from .websocket_client import MiniMaxT2AWebSocketClient
 
 _LOGGER = logging.getLogger(__name__)
-
-_CJK_TERMINATORS = re.compile(r"(?<=[。！？\n])")
 
 
 async def async_setup_entry(
@@ -154,49 +149,14 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
     async def _process_tts_stream(
         self, request: TTSAudioRequest
     ) -> AsyncGenerator[bytes]:
-        """Accumulate text into sentences, stream audio chunks per sentence."""
-        sentences: asyncio.Queue[str | None] = asyncio.Queue()
-        feed_task = asyncio.create_task(
-            self._feed_detector(request, sentences),
-            name="minimax_tts_feed_detector",
-        )
+        """Stream TTS audio via the WebSocket client."""
         ws_client = self._build_ws_client(request)
         try:
-            async for audio_chunk in ws_client.stream(self._drain_sentences(sentences)):
+            async for audio_chunk in ws_client.stream(request.message_gen):
                 yield audio_chunk
-        finally:
-            await self._cancel_feed(feed_task)
-
-    async def _feed_detector(
-        self,
-        request: TTSAudioRequest,
-        sentences: asyncio.Queue[str | None],
-    ) -> None:
-        """Read message chunks, split into sentences, enqueue them."""
-        detector = SentenceBoundaryDetector()
-        try:
-            async for chunk in request.message_gen:
-                for sentence in detector.add_chunk(chunk):
-                    cleaned = self._postprocess_sentence(sentence)
-                    if cleaned:
-                        await sentences.put(cleaned)
-            tail = detector.finish()
-            cleaned_tail = self._postprocess_sentence(tail) if tail else ""
-            if cleaned_tail:
-                await sentences.put(cleaned_tail)
-        finally:
-            await sentences.put(None)
-
-    @staticmethod
-    async def _drain_sentences(
-        sentences: asyncio.Queue[str | None],
-    ) -> AsyncIterator[str]:
-        """Yield sentences from the queue until the sentinel None is seen."""
-        while True:
-            sentence = await sentences.get()
-            if sentence is None:
-                return
-            yield sentence
+        except HomeAssistantError:
+            _LOGGER.exception("TTS stream failed for request %s", request)
+            return
 
     def _build_ws_client(self, request: TTSAudioRequest) -> MiniMaxT2AWebSocketClient:
         """Construct the WebSocket TTS client from subentry + request options."""
@@ -215,28 +175,3 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
             pitch=int(subentry_data.get(CONF_PITCH, DEFAULT_PITCH)),
             audio_format=self._resolve_streaming_format(request.options),
         )
-
-    @staticmethod
-    async def _cancel_feed(feed_task: asyncio.Task[None]) -> None:
-        """Cancel the feed task and swallow the CancelledError."""
-        if feed_task.done():
-            return
-        feed_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await feed_task
-
-    @staticmethod
-    def _postprocess_sentence(sentence: str) -> str:
-        """Re-split sentences on fullwidth CJK terminators.
-
-        ``sentence_stream.SentenceBoundaryDetector`` only knows about Latin
-        punctuation. Chinese/Japanese sentences ending in 。！？ arrive as
-        one chunk (no preceding ASCII punctuation), so we re-split here to
-        give CJK users per-sentence streaming latency.
-        """
-        if "。" in sentence or "！" in sentence or "？" in sentence:
-            parts = _CJK_TERMINATORS.split(sentence)
-            cleaned = [p.strip() for p in parts if p.strip()]
-            if len(cleaned) > 1:
-                return " ".join(cleaned)
-        return sentence.strip()

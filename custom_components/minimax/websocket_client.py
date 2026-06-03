@@ -94,21 +94,19 @@ class MiniMaxT2AWebSocketClient:
                 self._read_loop(ws, queue), name="minimax_t2a_ws_read"
             )
 
-            sent_chunks = 0
-            async for text_chunk in text_chunks:
-                if not text_chunk:
-                    continue
-                sent_chunks += 1
+            buffered: list[str] = [chunk async for chunk in text_chunks if chunk]
+            full_text = "".join(buffered)
+
+            if full_text:
                 _LOGGER.debug(
-                    "MiniMax TTS WS -> task_continue #%d: %r",
-                    sent_chunks,
-                    text_chunk,
+                    "MiniMax TTS WS -> task_continue: %d char(s) buffered",
+                    len(full_text),
                 )
-                await ws.send_json({"event": "task_continue", "text": text_chunk})
+                await ws.send_json({"event": "task_continue", "text": full_text})
 
             _LOGGER.debug(
-                "MiniMax TTS WS: text exhausted after %d chunk(s), sending task_finish",
-                sent_chunks,
+                "MiniMax TTS WS: text exhausted (%d char(s)), sending task_finish",
+                len(full_text),
             )
             with contextlib.suppress(ConnectionResetError, ClientError, RuntimeError):
                 await ws.send_json({"event": "task_finish"})
