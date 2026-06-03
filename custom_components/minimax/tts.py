@@ -156,7 +156,7 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
                 yield audio_chunk
         except HomeAssistantError:
             _LOGGER.exception("TTS stream failed for request %s", request)
-            return
+            raise
 
     def _build_ws_client(self, request: TTSAudioRequest) -> MiniMaxT2AWebSocketClient:
         """Construct the WebSocket TTS client from subentry + request options."""
