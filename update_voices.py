@@ -169,10 +169,22 @@ def _sanitize_voices(voices: list[str]) -> list[str]:
     literals in const.py. Restricting to a known-safe charset ensures a
     malicious or malformed ID cannot break out of the literal or smuggle
     extra code into the generated source.
+
+    Known safe substrings that contain characters outside SAFE_VOICE_ID
+    (e.g. parentheses in Chinese/Mandarin voice names) are stripped before
+    the check so the exact patterns are allowed without widening the regex
+    to all instances of those characters.
     """
+    KNOWN_SAFE_PATTERNS = ["(Mandarin)", "（F)", "（M)", "(F)", "(M)"]
+
     safe: list[str] = []
     for voice_id in voices:
-        if not isinstance(voice_id, str) or not SAFE_VOICE_ID.match(voice_id):
+        if not isinstance(voice_id, str):
+            continue
+        normalized = voice_id
+        for pattern in KNOWN_SAFE_PATTERNS:
+            normalized = normalized.replace(pattern, "")
+        if not SAFE_VOICE_ID.match(normalized):
             sys.stderr.write(f"Skipping unsafe voice_id: {voice_id!r}\n")
             continue
         safe.append(voice_id)
@@ -192,10 +204,9 @@ def _resolve_const_path() -> Path:
 
 
 def _update_const_py(voices: list[str]) -> None:
-    safe_voices = _sanitize_voices(voices)
     const_path = _resolve_const_path()
     content = const_path.read_text(encoding="utf-8")
-    formatted = _format_voice_ids(safe_voices)
+    formatted = _format_voice_ids(voices)
 
     start_marker = "# --- VOICE_IDS START ---"
     end_marker = "# --- VOICE_IDS END ---"
@@ -249,6 +260,8 @@ async def main() -> None:
     voice_ids = await fetch_voices(api_key)
     sys.stderr.write(f"Found {len(voice_ids)} system voices\n\n")
 
+    voice_ids = _sanitize_voices(voice_ids)
+
     if args.output == "update":
         _update_const_py(voice_ids)
         return
@@ -256,8 +269,6 @@ async def main() -> None:
     formatted = _format_voice_ids(voice_ids)
 
     if args.output == "file":
-        safe_voice_ids = _sanitize_voices(voice_ids)
-        formatted = _format_voice_ids(safe_voice_ids)
         output_path = (PROJECT_ROOT / "voices_output.py").resolve()
         if PROJECT_ROOT not in output_path.parents:
             sys.stderr.write(f"Refusing to write outside project root: {output_path}\n")
