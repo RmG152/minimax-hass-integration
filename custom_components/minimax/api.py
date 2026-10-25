@@ -14,10 +14,12 @@ from homeassistant.util.ssl import client_context
 
 from .const import (
     CHAT_TIMEOUT,
+    DEFAULT_CHAT_MAX_TOKENS,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
     MINIMAX_TTS_API,
+    RECOMMENDED_CHAT_MODEL,
 )
 
 TIMEOUT = 60
@@ -64,7 +66,7 @@ class MiniMaxApiClient:
         model: str,
         messages: list[dict[str, Any]],
         system_prompt: str,
-        max_tokens: int = 1024,
+        max_tokens: int = DEFAULT_CHAT_MAX_TOKENS,
         tools: list[dict[str, Any]] | None = None,
         timeout: float | None = None,
     ) -> dict[str, Any]:
@@ -272,10 +274,10 @@ class MiniMaxApiClient:
     async def async_verify_connection(self) -> bool:
         """Verify API connection with a simple test call."""
         result = await self.async_chat(
-            model="MiniMax-M2.7",
+            model=RECOMMENDED_CHAT_MODEL,
             messages=[{"role": "user", "content": "Hi"}],
             system_prompt="",
-            max_tokens=5,
+            max_tokens=64,
         )
         if not result.get("success", False):
             error = result.get("error", "")

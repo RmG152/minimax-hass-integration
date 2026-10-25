@@ -309,6 +309,14 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
     async_step_user = async_step_set_options
 
 
+def _suggested_chat_model(options: dict[str, Any]) -> str:
+    """Return the stored chat model, or the recommended one when it is retired."""
+    model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+    if any(model == chat_model["value"] for chat_model in CHAT_MODELS):
+        return model
+    return RECOMMENDED_CHAT_MODEL
+
+
 def async_minimax_option_schema(
     is_new: bool,
     subentry_type: str,
@@ -398,7 +406,7 @@ def async_minimax_option_schema(
         return schema
 
     if subentry_type == "conversation":
-        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+        default_model = _suggested_chat_model(options)
         schema.update(
             {
                 vol.Optional(
@@ -479,7 +487,7 @@ def async_minimax_option_schema(
             }
         )
     elif subentry_type == "ai_task_data":
-        default_model = options.get(CONF_CHAT_MODEL, RECOMMENDED_CHAT_MODEL)
+        default_model = _suggested_chat_model(options)
         schema.update(
             {
                 vol.Optional(

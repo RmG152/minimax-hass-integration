@@ -31,9 +31,9 @@ CONF_RECOMMENDED = "recommended"
 CONF_PROMPT = "prompt"
 CONF_CHAT_MODEL = "chat_model"
 
-RECOMMENDED_CHAT_MODEL = "MiniMax-M2.7"
+RECOMMENDED_CHAT_MODEL = "MiniMax-M3.1-Flash"
 RECOMMENDED_TTS_MODEL = "speech-2.8-hd"
-RECOMMENDED_STT_MODEL = "MiniMax-M2.7"
+RECOMMENDED_STT_MODEL = "MiniMax-M3.1-Flash"
 
 CONF_TTS_MODEL = "tts_model"
 
@@ -57,25 +57,14 @@ STREAMING_FORMATS = [
 ]
 RECOMMENDED_IMAGE_MODEL = "image-01"
 RECOMMENDED_AI_TASK_MAX_TOKENS = 16000
+# MiniMax-M3.1-Flash always thinks, and thinking tokens are billed against
+# max_tokens, so the chat budget must leave room for the answer as well.
+DEFAULT_CHAT_MAX_TOKENS = 4096
 CHAT_TIMEOUT = 30
 
 CHAT_MODELS = [
-    {"label": "MiniMax-M2.7 (Recommended)", "value": "MiniMax-M2.7"},
-    {
-        "label": "MiniMax-M2.7-highspeed (Fast)",
-        "value": "MiniMax-M2.7-highspeed",
-    },
-    {"label": "MiniMax-M2.5", "value": "MiniMax-M2.5"},
-    {
-        "label": "MiniMax-M2.5-highspeed (Fast)",
-        "value": "MiniMax-M2.5-highspeed",
-    },
-    {"label": "MiniMax-M2.1", "value": "MiniMax-M2.1"},
-    {
-        "label": "MiniMax-M2.1-highspeed (Fast)",
-        "value": "MiniMax-M2.1-highspeed",
-    },
-    {"label": "MiniMax-M2", "value": "MiniMax-M2"},
+    {"label": "MiniMax-M3.1-Flash (Recommended)", "value": "MiniMax-M3.1-Flash"},
+    {"label": "MiniMax-M3", "value": "MiniMax-M3"},
 ]
 
 

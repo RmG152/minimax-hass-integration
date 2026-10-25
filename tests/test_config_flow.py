@@ -24,9 +24,11 @@ from custom_components.minimax.config_flow import (
     LLMSubentryFlowHandler,
     MiniMaxConfigFlow,
     _schema_library,
+    _suggested_chat_model,
     async_minimax_option_schema,
 )
 from custom_components.minimax.const import (
+    RECOMMENDED_CHAT_MODEL,
     RECOMMENDED_CONVERSATION_OPTIONS,
     RECOMMENDED_STT_OPTIONS,
     RECOMMENDED_TTS_OPTIONS,
@@ -713,6 +715,25 @@ class TestConfigFlowExtraErrors:
 
         assert result["type"] == FlowResultType.FORM
         assert result["errors"] == {"base": "invalid_auth"}
+
+
+class TestSuggestedChatModel:
+    """Test the chat model suggested by the options flow."""
+
+    def test_keeps_stored_model_when_still_available(self):
+        """Test a stored model that is still offered is kept."""
+        assert _suggested_chat_model({CONF_CHAT_MODEL: "MiniMax-M3"}) == "MiniMax-M3"
+
+    def test_falls_back_for_retired_model(self):
+        """Test a retired stored model falls back to the recommended one."""
+        assert (
+            _suggested_chat_model({CONF_CHAT_MODEL: "MiniMax-M2.7"})
+            == RECOMMENDED_CHAT_MODEL
+        )
+
+    def test_defaults_to_recommended_model(self):
+        """Test no stored model falls back to the recommended one."""
+        assert _suggested_chat_model({}) == RECOMMENDED_CHAT_MODEL
 
 
 class TestSchemaLibrarySelection:

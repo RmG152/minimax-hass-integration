@@ -6,10 +6,12 @@ import pytest
 
 from custom_components.minimax.api import MiniMaxApiClient, MiniMaxApiClientError
 from custom_components.minimax.const import (
+    DEFAULT_CHAT_MAX_TOKENS,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
     MINIMAX_STT_API,
     MINIMAX_TTS_API,
+    RECOMMENDED_CHAT_MODEL,
 )
 
 TEST_API_KEY = "test_api_key_12345"
@@ -114,7 +116,7 @@ class TestAsyncChat:
         )
 
         result = await api_client.async_chat(
-            model="MiniMax-M2.7",
+            model="MiniMax-M3.1-Flash",
             messages=[{"role": "user", "content": "Hi"}],
             system_prompt="You are helpful.",
         )
@@ -137,7 +139,7 @@ class TestAsyncChat:
             {"name": "get_weather", "description": "Get weather", "input_schema": {}}
         ]
         await api_client.async_chat(
-            model="MiniMax-M2.7",
+            model="MiniMax-M3.1-Flash",
             messages=[],
             system_prompt="",
             tools=tools,
@@ -161,7 +163,7 @@ class TestAsyncChat:
         )
 
         result = await api_client.async_chat(
-            model="MiniMax-M2.7", messages=[], system_prompt=""
+            model="MiniMax-M3.1-Flash", messages=[], system_prompt=""
         )
 
         assert result["success"] is True
@@ -187,7 +189,7 @@ class TestAsyncChat:
         )
 
         result = await api_client.async_chat(
-            model="MiniMax-M2.7", messages=[], system_prompt=""
+            model="MiniMax-M3.1-Flash", messages=[], system_prompt=""
         )
 
         assert result["success"] is True
@@ -201,7 +203,7 @@ class TestAsyncChat:
         )
 
         result = await api_client.async_chat(
-            model="MiniMax-M2.7", messages=[], system_prompt=""
+            model="MiniMax-M3.1-Flash", messages=[], system_prompt=""
         )
 
         assert result["success"] is False
@@ -213,7 +215,7 @@ class TestAsyncChat:
             return_value=_make_chat_response([_make_text_block("ok")])
         )
         await api_client.async_chat(
-            model="MiniMax-M2.7",
+            model="MiniMax-M3.1-Flash",
             messages=[],
             system_prompt="",
             timeout=15.0,
@@ -226,7 +228,7 @@ class TestAsyncChat:
         mock_anthropic.messages.create = AsyncMock(return_value=_make_chat_response([]))
 
         result = await api_client.async_chat(
-            model="MiniMax-M2.7", messages=[], system_prompt=""
+            model="MiniMax-M3.1-Flash", messages=[], system_prompt=""
         )
 
         assert result["success"] is True
@@ -350,7 +352,7 @@ class TestAsyncSTT:
 
         result = await api_client.async_stt(
             audio_data=b"fake",
-            model="MiniMax-M2.7",
+            model="MiniMax-M3.1-Flash",
             language="en-US",
             prompt="Transcribe",
             audio_format="wav",
@@ -371,7 +373,7 @@ class TestAsyncSTT:
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_stt(
                 audio_data=b"test",
-                model="MiniMax-M2.7",
+                model="MiniMax-M3.1-Flash",
                 language="en-US",
                 prompt="",
                 audio_format="wav",
@@ -387,7 +389,7 @@ class TestAsyncSTT:
         with pytest.raises(MiniMaxApiClientError):
             await api_client.async_stt(
                 audio_data=b"test",
-                model="MiniMax-M2.7",
+                model="MiniMax-M3.1-Flash",
                 language="en-US",
                 prompt="",
                 audio_format="wav",
@@ -503,6 +505,34 @@ class TestAsyncVerifyConnection:
         result = await api_client.async_verify_connection()
 
         assert result is True
+
+    async def test_uses_recommended_model(self, api_client, mock_anthropic):
+        """Test connection verification uses the recommended chat model."""
+        mock_anthropic.messages.create = AsyncMock(
+            return_value=_make_chat_response([_make_text_block("ok")])
+        )
+
+        await api_client.async_verify_connection()
+
+        call_kwargs = mock_anthropic.messages.create.call_args[1]
+        assert call_kwargs["model"] == RECOMMENDED_CHAT_MODEL
+        assert call_kwargs["max_tokens"] == 64
+
+    async def test_default_max_tokens_leaves_room_for_thinking(
+        self, api_client, mock_anthropic
+    ):
+        """Test the default chat budget covers thinking tokens and the answer."""
+        mock_anthropic.messages.create = AsyncMock(
+            return_value=_make_chat_response([_make_text_block("ok")])
+        )
+
+        await api_client.async_chat(
+            model=RECOMMENDED_CHAT_MODEL, messages=[], system_prompt=""
+        )
+
+        call_kwargs = mock_anthropic.messages.create.call_args[1]
+        assert call_kwargs["max_tokens"] == DEFAULT_CHAT_MAX_TOKENS
+        assert DEFAULT_CHAT_MAX_TOKENS >= 4096
 
     async def test_auth_failure(self, api_client):
         """Test verification with auth failure."""

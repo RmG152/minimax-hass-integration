@@ -418,8 +418,23 @@ When adding tests:
 - **Fix**: Enable debug logging in HA UI: Settings → System → Logs → click "Enable debug logging" for "custom_components.minimax"
 
 ### AI response includes thinking/reasoning text
-- **Cause**: MiniMax API returns thinking content in `<think>...</think>` tags within the content field
-- **Fix**: Strip with regex: `re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL)`
+- **Cause**: Older MiniMax models returned thinking content in `<think>...</think>`
+  tags inside the text. Current models (`MiniMax-M3.1-Flash`, `MiniMax-M3`) return
+  thinking as separate `thinking` content blocks, which `api.py` already discards.
+- **Fix**: The `<think>` stripping in `ai_task.py` / `conversation.py` is a legacy
+  safeguard. If thinking leaks into a reply, check that the `thinking` block type
+  is still skipped in `api.py`.
+
+### Chat model list is outdated
+- **Cause**: MiniMax retires model families. As of Oct 2026 the available LLMs are
+  `MiniMax-M3.1-Flash` and `MiniMax-M3`; the `MiniMax-M2`, `M2.1`, `M2.5` and
+  `M2.7` families are retired (pay-as-you-go access ended Nov 18, 2026).
+- **Fix**: Update `CHAT_MODELS` and `RECOMMENDED_CHAT_MODEL` in `const.py`, and
+  drop any hardcoded model name (e.g. in `api.py` connection checks).
+  `MiniMax-M3.1-Flash` always thinks and thinking tokens count against
+  `max_tokens`, so keep `DEFAULT_CHAT_MAX_TOKENS` large enough for the answer.
+  Voice and TTS models (`speech-*`) and `image-01` are unchanged; the voice list
+  is synced automatically by `.github/workflows/update_voices.yml`.
 
 ### Error setting up entry: ModuleNotFoundError: No module named 'voluptuous_openapi'
 - **Cause**: Home Assistant dropped schema libraries from its core requirements:
