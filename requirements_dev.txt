@@ -10,8 +10,13 @@ pylint
 pytest-aiohttp
 pytest-asyncio
 # HA component dependencies that are not pulled transitively
-hassil
-home-assistant-intents
+# Pinned to the versions required by the Home Assistant release used in tests,
+# newer releases drop modules (hassil.fuzzy, intents.FuzzyConfig) that HA imports.
+hassil==3.5.0
+home-assistant-intents==2026.1.28
+# Schema library used by HA 2026.10+ (replaces voluptuous); used to test
+# schema conversion against both voluptuous and probatio schemas.
+probatio==0.13.0
 mutagen
 jsonpickle>=4.0.2 # not directly required, pinned by Snyk to avoid a vulnerability
 requests>=2.31.0 # not directly required, pinned by Snyk to avoid a vulnerability

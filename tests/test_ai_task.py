@@ -615,7 +615,7 @@ class TestSchemaHelpers:
     def test_schema_to_description_uses_generic_on_error(self, caplog):
         """Test _schema_to_description returns generic instruction on failure."""
         with patch(
-            "custom_components.minimax.ai_task.convert",
+            "custom_components.minimax.ai_task._schema_to_openapi",
             side_effect=Exception("bad schema"),
         ):
             result = minimax_ai_task._schema_to_description(vol.Schema({}))
@@ -644,6 +644,203 @@ class TestSchemaHelpers:
         assert "green" in result
         assert "blue" in result
         assert "(required)" in result
+
+
+class TestSchemaConversion:
+    """Test conversion of voluptuous and probatio schemas to OpenAPI dictionaries."""
+
+    def test_required_and_optional_markers(self):
+        """Test required markers are collected and descriptions are kept."""
+        schema = vol.Schema(
+            {
+                vol.Required("name", description="User name"): str,
+                vol.Optional("age"): int,
+            }
+        )
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["type"] == "object"
+        assert result["properties"]["name"]["type"] == "string"
+        assert result["properties"]["name"]["description"] == "User name"
+        assert result["properties"]["age"]["type"] == "integer"
+        assert result["required"] == ["name"]
+
+    def test_no_required_keys_when_all_optional(self):
+        """Test a schema without required fields omits the required key."""
+        schema = vol.Schema({vol.Optional("age"): int})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert "required" not in result
+
+    def test_nested_object(self):
+        """Test nested schemas become nested object properties."""
+        schema = vol.Schema(
+            {vol.Required("address"): vol.Schema({vol.Required("city"): str})}
+        )
+        result = minimax_ai_task._schema_to_openapi(schema)
+        address = result["properties"]["address"]
+        assert address["type"] == "object"
+        assert address["properties"]["city"]["type"] == "string"
+        assert address["required"] == ["city"]
+
+    def test_array_items(self):
+        """Test sequence schemas become arrays with item types."""
+        schema = vol.Schema({vol.Required("tags"): [str]})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["tags"]["type"] == "array"
+        assert result["properties"]["tags"]["items"]["type"] == "string"
+
+    def test_empty_array_items(self):
+        """Test an empty sequence schema falls back to an untyped item."""
+        schema = vol.Schema({vol.Required("tags"): []})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["tags"]["items"]["type"] == "any"
+
+    def test_enum_values(self):
+        """Test In validators become enum properties."""
+        schema = vol.Schema({vol.Required("color"): vol.In(["red", "green"])})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        color = result["properties"]["color"]
+        assert color["type"] == "string"
+        assert color["enum"] == ["red", "green"]
+
+    def test_coerced_type(self):
+        """Test Coerce validators use the coerced type."""
+        schema = vol.Schema({vol.Required("count"): vol.Coerce(int)})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["count"]["type"] == "integer"
+
+    def test_range_constraints(self):
+        """Test Range validators expose their bounds."""
+        schema = vol.Schema({vol.Required("rating"): vol.Range(min=0, max=5)})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        rating = result["properties"]["rating"]
+        assert rating["type"] == "number"
+        assert rating["minimum"] == 0
+        assert rating["maximum"] == 5
+
+    def test_unsupported_validator_is_untyped(self):
+        """Test unknown validators fall back to an untyped property."""
+        schema = vol.Schema({vol.Required("x"): lambda value: value})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["x"]["type"] == "any"
+
+    def test_selector_uses_home_assistant_serializer(self):
+        """Test selectors are serialized with the Home Assistant helper."""
+        from homeassistant.helpers import selector
+
+        schema = vol.Schema(
+            {
+                vol.Required("device"): selector.SelectSelector(
+                    {"options": ["x", "y"]}
+                ),
+            }
+        )
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["device"]["type"] == "string"
+
+    def test_plain_dict_schema(self):
+        """Test a plain mapping is treated as an object schema."""
+        result = minimax_ai_task._schema_to_openapi({"x": str})
+        assert result["properties"]["x"]["type"] == "string"
+
+    def test_schema_to_description_text(self):
+        """Test the description text mentions fields, types and required markers."""
+        schema = vol.Schema(
+            {
+                vol.Required("name", description="User name"): str,
+                vol.Optional("age"): int,
+            }
+        )
+        result = minimax_ai_task._schema_to_description(schema)
+        assert "name" in result
+        assert "User name" in result
+        assert "(required)" in result
+        assert "integer" in result
+
+    def test_probatio_schema_matches_voluptuous_schema(self):
+        """Test probatio schemas (HA 2026.10+) convert like voluptuous ones."""
+        probatio = pytest.importorskip("probatio")
+
+        voluptuous_result = minimax_ai_task._schema_to_openapi(
+            vol.Schema(
+                {
+                    vol.Required("name", description="User name"): str,
+                    vol.Optional("age"): int,
+                    vol.Optional("tags"): [str],
+                    vol.Optional("color"): vol.In(["red", "green"]),
+                    vol.Optional("count"): vol.Coerce(int),
+                    vol.Optional("rating"): vol.All(int, vol.Range(min=0, max=5)),
+                }
+            )
+        )
+        probatio_result = minimax_ai_task._schema_to_openapi(
+            probatio.Schema(
+                {
+                    probatio.Required("name", description="User name"): str,
+                    probatio.Optional("age"): int,
+                    probatio.Optional("tags"): [str],
+                    probatio.Optional("color"): probatio.In(["red", "green"]),
+                    probatio.Optional("count"): probatio.Coerce(int),
+                    probatio.Optional("rating"): probatio.All(
+                        int, probatio.Range(min=0, max=5)
+                    ),
+                }
+            )
+        )
+        assert probatio_result == voluptuous_result
+        assert probatio_result["properties"]["color"]["enum"] == ["red", "green"]
+        assert probatio_result["properties"]["count"]["type"] == "integer"
+
+    def test_probatio_schema_to_description(self):
+        """Test probatio schemas produce a usable description text."""
+        probatio = pytest.importorskip("probatio")
+
+        schema = probatio.Schema(
+            {
+                probatio.Required("name", description="User name"): str,
+                probatio.Optional("tags"): [str],
+            }
+        )
+        result = minimax_ai_task._schema_to_description(schema)
+        assert "name" in result
+        assert "User name" in result
+        assert "(required)" in result
+        assert "tags" in result
+        assert "[<string>]" in result
+
+
+class TestSchemaLibraryIsolation:
+    """Test the platform module loads without the optional schema libraries."""
+
+    def test_module_imports_without_voluptuous_openapi(self):
+        """Test the module loads when voluptuous/openapi/probatio are missing.
+
+        This reproduces the Home Assistant 2026.9+ environment where
+        ``voluptuous_openapi`` is no longer part of the core requirements.
+        """
+        import importlib
+        import sys
+
+        blocked = ("voluptuous", "voluptuous_openapi", "probatio")
+
+        class _Blocker:
+            """Block imports of the given module names."""
+
+            def find_spec(self, fullname, path=None, target=None):
+                """Raise for blocked module names."""
+                if fullname in blocked:
+                    raise ModuleNotFoundError(f"No module named '{fullname}'")
+
+        saved = {name: sys.modules.pop(name) for name in blocked if name in sys.modules}
+        blocker = _Blocker()
+        sys.meta_path.insert(0, blocker)
+        try:
+            module = importlib.reload(minimax_ai_task)
+        finally:
+            sys.meta_path.remove(blocker)
+            sys.modules.update(saved)
+
+        result = module._schema_to_openapi({"x": str})
+        assert result["properties"]["x"]["type"] == "string"
 
 
 def _make_chat_log_with_assistant():

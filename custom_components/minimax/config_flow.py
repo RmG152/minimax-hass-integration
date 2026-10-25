@@ -1,9 +1,8 @@
 """Config flow for MiniMax integration."""
 
+import importlib
 import logging
 from typing import Any
-
-import voluptuous as vol
 
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
@@ -14,6 +13,7 @@ from homeassistant.config_entries import (
     ConfigSubentryFlow,
     SubentryFlowResult,
 )
+from homeassistant.const import __version__ as HA_VERSION
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
@@ -73,6 +73,29 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _schema_library() -> Any:
+    """Return the schema library used by the running Home Assistant version.
+
+    Home Assistant 2026.10 replaced voluptuous with probatio in its config flow
+    API, so the config flow must build schemas with the library that matches
+    the Home Assistant release it runs on.
+    """
+    version = tuple(int(part) for part in HA_VERSION.split(".")[:2])
+    preferred = "probatio" if version >= (2026, 10) else "voluptuous"
+    fallback = "voluptuous" if preferred == "probatio" else "probatio"
+
+    for name in (preferred, fallback):
+        try:
+            return importlib.import_module(name)
+        except ImportError:
+            continue
+
+    raise ImportError("Neither voluptuous nor probatio is available")
+
+
+vol = _schema_library()
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {

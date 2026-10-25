@@ -1,5 +1,6 @@
 """Tests for MiniMax config flow."""
 
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,6 +23,7 @@ from custom_components.minimax.config_flow import (
     CONF_VOL,
     LLMSubentryFlowHandler,
     MiniMaxConfigFlow,
+    _schema_library,
     async_minimax_option_schema,
 )
 from custom_components.minimax.const import (
@@ -711,3 +713,40 @@ class TestConfigFlowExtraErrors:
 
         assert result["type"] == FlowResultType.FORM
         assert result["errors"] == {"base": "invalid_auth"}
+
+
+class TestSchemaLibrarySelection:
+    """Test the config flow selects the schema library of the running HA version."""
+
+    def test_voluptuous_before_home_assistant_2026_10(self):
+        """Test Home Assistant before 2026.10 uses voluptuous."""
+        with patch("custom_components.minimax.config_flow.HA_VERSION", "2026.9.0"):
+            library = _schema_library()
+        assert library.__name__ == "voluptuous"
+
+    def test_probatio_from_home_assistant_2026_10(self):
+        """Test Home Assistant 2026.10 and newer use probatio."""
+        pytest.importorskip("probatio")
+
+        with patch("custom_components.minimax.config_flow.HA_VERSION", "2026.10.0"):
+            library = _schema_library()
+        assert library.__name__ == "probatio"
+
+    def test_falls_back_to_the_other_library(self):
+        """Test the other library is used when the preferred one is missing."""
+        real_import_module = importlib.import_module
+
+        def _fake_import_module(name, *args, **kwargs):
+            if name == "probatio":
+                raise ImportError(name)
+            return real_import_module(name, *args, **kwargs)
+
+        with (
+            patch("custom_components.minimax.config_flow.HA_VERSION", "2026.10.0"),
+            patch(
+                "custom_components.minimax.config_flow.importlib.import_module",
+                side_effect=_fake_import_module,
+            ),
+        ):
+            library = _schema_library()
+        assert library.__name__ == "voluptuous"

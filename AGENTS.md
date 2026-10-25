@@ -244,7 +244,11 @@ Use Home Assistant's config entry exceptions:
 - `ConfigEntryNotReady` - Service not available (e.g., timeout)
 
 ```python
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryError, ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryError,
+    ConfigEntryNotReady,
+)
 
 try:
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -380,8 +384,8 @@ When adding tests:
   ```python
   # WRONG - plain dict with integer value
   {"label": "5 minutes", "value": 5}
-  
-  # CORRECT - SelectOptionDict with string value  
+
+  # CORRECT - SelectOptionDict with string value
   SelectOptionDict(label="5 minutes", value="5")
   ```
 
@@ -416,6 +420,21 @@ When adding tests:
 ### AI response includes thinking/reasoning text
 - **Cause**: MiniMax API returns thinking content in `<think>...</think>` tags within the content field
 - **Fix**: Strip with regex: `re.sub(r"<think>.*?</think>", "", response_text, flags=re.DOTALL)`
+
+### Error setting up entry: ModuleNotFoundError: No module named 'voluptuous_openapi'
+- **Cause**: Home Assistant dropped schema libraries from its core requirements:
+  - HA ≤ 2026.8 ships `voluptuous` + `voluptuous-openapi`
+  - HA 2026.9 ships `probatio` only (`voluptuous-openapi` is gone)
+  - HA ≥ 2026.10 uses `probatio` in its config flow API (`voluptuous` is gone)
+  A custom integration that imports one of these packages at module level
+  breaks the platform load, so the config entry never finishes setting up.
+- **Fix**:
+  - Platform modules must not import `voluptuous` / `voluptuous_openapi` /
+    `probatio`. `ai_task.py` converts schemas with the local
+    `_schema_to_openapi()` helper, which handles voluptuous **and** probatio
+    schemas (markers, nested objects, arrays, enums, ranges, selectors).
+  - `config_flow.py` builds its flow schema with `_schema_library()`, which
+    picks `probatio` on HA ≥ 2026.10 and `voluptuous` before that.
 
 ## graphify
 

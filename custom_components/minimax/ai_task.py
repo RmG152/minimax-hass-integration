@@ -5,14 +5,11 @@ import logging
 import re
 from typing import Any
 
-import voluptuous as vol
-from voluptuous_openapi import convert
-
 from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry, ConfigSubentry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import llm
+from homeassistant.helpers import llm, selector
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads
 
@@ -33,13 +30,10 @@ ERROR_GETTING_RESPONSE = "Sorry, I had a problem getting a response from MiniMax
 _LOGGER = logging.getLogger(__name__)
 
 
-def _schema_to_description(schema: vol.Schema) -> str:
-    """Convert a voluptuous schema to a human-readable JSON description."""
+def _schema_to_description(schema: Any) -> str:
+    """Convert a voluptuous or probatio schema to a human-readable JSON description."""
     try:
-        openapi_schema = convert(
-            schema,
-            custom_serializer=llm.selector_serializer,
-        )
+        openapi_schema = _schema_to_openapi(schema)
     except Exception:  # noqa: BLE001
         _LOGGER.warning(
             "Could not convert schema to OpenAPI, using generic instruction"
@@ -47,6 +41,172 @@ def _schema_to_description(schema: vol.Schema) -> str:
         return "Respond with ONLY a valid JSON object."
 
     return _openapi_schema_to_text(openapi_schema)
+
+
+def _schema_to_openapi(schema: Any) -> dict[str, Any]:
+    """Convert a voluptuous or probatio schema into an OpenAPI-style dictionary."""
+    if isinstance(schema, dict):
+        return _object_to_openapi(schema)
+
+    inner = getattr(schema, "schema", None)
+    if isinstance(inner, dict):
+        return _object_to_openapi(inner)
+
+    return _value_to_openapi(schema)
+
+
+def _object_to_openapi(mapping: dict[str, Any]) -> dict[str, Any]:
+    """Convert a schema mapping into an OpenAPI-style object schema."""
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for key, value in mapping.items():
+        name, description, is_required = _describe_key(key)
+        prop = _value_to_openapi(value)
+        if description:
+            prop["description"] = description
+        properties[name] = prop
+        if is_required:
+            required.append(name)
+
+    result: dict[str, Any] = {"type": "object", "properties": properties}
+    if required:
+        result["required"] = required
+    return result
+
+
+def _describe_key(key: Any) -> tuple[str, str | None, bool]:
+    """Return the property name, description and required flag for a schema key."""
+    if not isinstance(key, (str, int, float, bool)):
+        marker_schema = getattr(key, "schema", None)
+        if marker_schema is not None:
+            name = (
+                marker_schema if isinstance(marker_schema, str) else str(marker_schema)
+            )
+            description = getattr(key, "description", None)
+            return name, description, type(key).__name__ == "Required"
+
+    return str(key), None, False
+
+
+def _value_to_openapi(value: Any) -> dict[str, Any]:
+    """Convert a single schema value into an OpenAPI-style dictionary."""
+    if isinstance(value, dict):
+        return _object_to_openapi(value)
+
+    if isinstance(value, (list, tuple)):
+        return {"type": "array", "items": _items_to_openapi(value)}
+
+    if isinstance(value, selector.Selector):
+        return _selector_to_openapi(value)
+
+    inner = getattr(value, "schema", None)
+    if isinstance(inner, dict):
+        return _object_to_openapi(inner)
+    if isinstance(inner, (list, tuple)):
+        return {"type": "array", "items": _items_to_openapi(inner)}
+
+    validator = _validator_to_openapi(value)
+    if validator is not None:
+        return validator
+
+    if value is None:
+        return {"type": "null"}
+
+    json_type = _json_type(value)
+    if json_type is not None:
+        return {"type": json_type}
+
+    return {"type": "any"}
+
+
+def _items_to_openapi(values: Any) -> dict[str, Any]:
+    """Convert the items of a sequence schema into an OpenAPI-style dictionary."""
+    if not values:
+        return {"type": "any"}
+    return _value_to_openapi(values[0])
+
+
+def _selector_to_openapi(value: Any) -> dict[str, Any]:
+    """Convert a Home Assistant selector into an OpenAPI-style dictionary."""
+    try:
+        converted = llm.selector_serializer(value)
+    except Exception:  # noqa: BLE001
+        converted = None
+
+    if isinstance(converted, dict):
+        return converted
+    return {"type": "string"}
+
+
+def _validator_to_openapi(value: Any) -> dict[str, Any] | None:
+    """Convert a voluptuous or probatio validator into an OpenAPI-style dictionary."""
+    validators = getattr(value, "validators", None)
+    if validators:
+        for validator in validators:
+            converted = _value_to_openapi(validator)
+            if converted.get("type") != "any":
+                return converted
+        return {"type": "any"}
+
+    coerced = getattr(value, "type", None)
+    if coerced is not None:
+        return _value_to_openapi(coerced)
+
+    container = getattr(value, "container", None)
+    if container is not None:
+        options = list(container)
+        if options:
+            return {"type": _json_type_of_value(options[0]) or "any", "enum": options}
+        return {"type": "any"}
+
+    minimum = getattr(value, "min", None)
+    maximum = getattr(value, "max", None)
+    if minimum is not None or maximum is not None:
+        result: dict[str, Any] = {"type": "number"}
+        if minimum is not None:
+            result["minimum"] = minimum
+        if maximum is not None:
+            result["maximum"] = maximum
+        return result
+
+    return None
+
+
+def _json_type(value: Any) -> str | None:
+    """Return the JSON schema type for a Python type."""
+    if value is bool:
+        return "boolean"
+    if value is int:
+        return "integer"
+    if value is float:
+        return "number"
+    if value is str:
+        return "string"
+    if value is dict:
+        return "object"
+    if value is list or value is tuple or value is set or value is frozenset:
+        return "array"
+    return None
+
+
+def _json_type_of_value(value: Any) -> str | None:
+    """Return the JSON schema type for a Python value."""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int):
+        return "integer"
+    if isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, dict):
+        return "object"
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return "array"
+    return None
 
 
 def _format_object_schema(schema: dict[str, Any], indent: int) -> str:
