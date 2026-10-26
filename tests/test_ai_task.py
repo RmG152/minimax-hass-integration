@@ -723,6 +723,101 @@ class TestSchemaConversion:
         result = minimax_ai_task._schema_to_openapi(schema)
         assert result["properties"]["x"]["type"] == "any"
 
+    def test_composite_validator_without_convertible_members(self):
+        """Test a validator group whose members are all unconvertible is untyped."""
+        schema = vol.Schema({vol.Required("x"): vol.All(lambda value: value)})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["x"]["type"] == "any"
+
+    def test_schema_without_mapping_is_converted_directly(self):
+        """Test a schema object without a mapping is converted as a value."""
+        result = minimax_ai_task._schema_to_openapi(vol.All(int))
+        assert result["type"] == "integer"
+
+    def test_mapping_property_becomes_object(self):
+        """Test a plain mapping used as a property becomes an object schema."""
+        schema = vol.Schema({vol.Required("address"): {"city": str}})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        address = result["properties"]["address"]
+        assert address["type"] == "object"
+        assert address["properties"]["city"]["type"] == "string"
+
+    def test_sequence_schema_becomes_array(self):
+        """Test a schema holding a sequence becomes an array property."""
+        schema = vol.Schema({vol.Required("tags"): vol.Schema([str])})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["tags"]["type"] == "array"
+        assert result["properties"]["tags"]["items"]["type"] == "string"
+
+    def test_none_property_becomes_null(self):
+        """Test a None property becomes a null schema."""
+        schema = vol.Schema({vol.Optional("value"): None})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["value"]["type"] == "null"
+
+    def test_selector_serializer_failure_falls_back_to_string(self):
+        """Test a failing selector serializer falls back to a string schema."""
+        from homeassistant.helpers import selector
+
+        schema = vol.Schema(
+            {vol.Required("device"): selector.SelectSelector({"options": ["x"]})}
+        )
+        with patch(
+            "custom_components.minimax.ai_task.llm.selector_serializer",
+            side_effect=ValueError("boom"),
+        ):
+            result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["device"]["type"] == "string"
+
+    def test_selector_without_mapping_falls_back_to_string(self):
+        """Test a selector converted to a non-mapping falls back to a string."""
+        from homeassistant.helpers import selector
+
+        schema = vol.Schema(
+            {vol.Required("device"): selector.SelectSelector({"options": ["x"]})}
+        )
+        with patch(
+            "custom_components.minimax.ai_task.llm.selector_serializer",
+            return_value="device",
+        ):
+            result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["device"]["type"] == "string"
+
+    def test_empty_enum_becomes_untyped(self):
+        """Test an enum without options falls back to an untyped property."""
+        schema = vol.Schema({vol.Required("choice"): vol.In([])})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["choice"]["type"] == "any"
+
+    def test_scalar_types_are_reported(self):
+        """Test bool, float and dict types are reported with their JSON type."""
+        schema = vol.Schema(
+            {
+                vol.Required("flag"): bool,
+                vol.Required("ratio"): float,
+                vol.Required("payload"): dict,
+            }
+        )
+        result = minimax_ai_task._schema_to_openapi(schema)
+        assert result["properties"]["flag"]["type"] == "boolean"
+        assert result["properties"]["ratio"]["type"] == "number"
+        assert result["properties"]["payload"]["type"] == "object"
+
+    def test_enum_option_types_are_reported(self):
+        """Test an enum keeps the JSON type of its first option."""
+
+        def _enum_type(options):
+            schema = vol.Schema({vol.Required("x"): vol.In(options)})
+            return minimax_ai_task._schema_to_openapi(schema)["properties"]["x"]["type"]
+
+        assert _enum_type([None, "a"]) == "null"
+        assert _enum_type([True, "a"]) == "boolean"
+        assert _enum_type([1, "a"]) == "integer"
+        assert _enum_type([1.5, "a"]) == "number"
+        assert _enum_type([{"a": 1}]) == "object"
+        assert _enum_type([[1, 2]]) == "array"
+        assert _enum_type([object()]) == "any"
+
     def test_selector_uses_home_assistant_serializer(self):
         """Test selectors are serialized with the Home Assistant helper."""
         from homeassistant.helpers import selector

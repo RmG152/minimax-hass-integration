@@ -771,3 +771,18 @@ class TestSchemaLibrarySelection:
         ):
             library = _schema_library()
         assert library.__name__ == "voluptuous"
+
+    def test_raises_when_no_schema_library_is_available(self):
+        """Test an ImportError is raised when no schema library can be imported."""
+
+        def _fake_import_module(name, *args, **kwargs):
+            raise ImportError(name)
+
+        with (
+            patch(
+                "custom_components.minimax.config_flow.importlib.import_module",
+                side_effect=_fake_import_module,
+            ),
+            pytest.raises(ImportError, match="Neither voluptuous nor probatio"),
+        ):
+            _schema_library()
