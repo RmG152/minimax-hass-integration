@@ -126,6 +126,56 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> None:
         raise CannotConnectError("Failed to connect to MiniMax API")
 
 
+def _default_subentries() -> list[dict[str, Any]]:
+    """Return the default subentries created together with a new config entry."""
+    return [
+        {
+            "subentry_type": "conversation",
+            "data": RECOMMENDED_CONVERSATION_OPTIONS,
+            "title": DEFAULT_CONVERSATION_NAME,
+            "unique_id": None,
+        },
+        {
+            "subentry_type": "tts",
+            "data": RECOMMENDED_TTS_OPTIONS,
+            "title": "MiniMax TTS",
+            "unique_id": None,
+        },
+        {
+            "subentry_type": "stt",
+            "data": RECOMMENDED_STT_OPTIONS,
+            "title": "MiniMax STT",
+            "unique_id": None,
+        },
+        {
+            "subentry_type": "ai_task_data",
+            "data": RECOMMENDED_AI_TASK_OPTIONS,
+            "title": DEFAULT_AI_TASK_NAME,
+            "unique_id": None,
+        },
+    ]
+
+
+def _is_auth_error(err: Exception) -> bool:
+    """Return True when an API error was caused by an invalid API key."""
+    err_str = str(err).lower()
+    return "invalid api key" in err_str or "401" in err_str
+
+
+def _masked_input(user_input: dict[str, Any]) -> dict[str, Any]:
+    """Return the user input with the API key masked, so it can be logged."""
+    return {k: ("***" if k == CONF_API_KEY else v) for k, v in user_input.items()}
+
+
+def _api_client_error_key(err: Exception) -> str:
+    """Return the config flow error key of an API client error."""
+    if _is_auth_error(err):
+        _LOGGER.warning("Invalid auth during config flow: %s", err)
+        return "invalid_auth"
+    _LOGGER.warning("Cannot connect during config flow: %s", err)
+    return "cannot_connect"
+
+
 class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for MiniMax."""
 
@@ -137,10 +187,9 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Handle the initial step."""
         if user_input:
-            safe_input = {
-                k: ("***" if k == CONF_API_KEY else v) for k, v in user_input.items()
-            }
-            _LOGGER.debug("async_step_user called with input: %s", safe_input)
+            _LOGGER.debug(
+                "async_step_user called with input: %s", _masked_input(user_input)
+            )
         else:
             _LOGGER.debug("async_step_user called with no input")
         errors: dict[str, str] = {}
@@ -151,60 +200,33 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
             except InvalidAuthError:
                 _LOGGER.warning("Invalid auth during config flow")
                 errors["base"] = "invalid_auth"
-            except CannotConnectError as e:
-                _LOGGER.warning("Cannot connect during config flow: %s", e)
+            except CannotConnectError as err:
+                _LOGGER.warning("Cannot connect during config flow: %s", err)
                 errors["base"] = "cannot_connect"
-            except MiniMaxApiClientError as e:
-                err_str = str(e).lower()
-                if "invalid api key" in err_str or "401" in err_str:
-                    _LOGGER.warning("Invalid auth during config flow: %s", e)
-                    errors["base"] = "invalid_auth"
-                else:
-                    _LOGGER.warning("Cannot connect during config flow: %s", e)
-                    errors["base"] = "cannot_connect"
+            except MiniMaxApiClientError as err:
+                errors["base"] = _api_client_error_key(err)
             else:
                 _LOGGER.info("Config flow validation successful, creating entry")
-                if self.source == SOURCE_REAUTH:
-                    _LOGGER.debug("Re-auth flow, updating entry")
-                    return self.async_update_reload_and_abort(
-                        self._get_reauth_entry(),
-                        data=user_input,
-                    )
-                return self.async_create_entry(
-                    title=DEFAULT_TITLE,
-                    data=user_input,
-                    subentries=[
-                        {
-                            "subentry_type": "conversation",
-                            "data": RECOMMENDED_CONVERSATION_OPTIONS,
-                            "title": DEFAULT_CONVERSATION_NAME,
-                            "unique_id": None,
-                        },
-                        {
-                            "subentry_type": "tts",
-                            "data": RECOMMENDED_TTS_OPTIONS,
-                            "title": "MiniMax TTS",
-                            "unique_id": None,
-                        },
-                        {
-                            "subentry_type": "stt",
-                            "data": RECOMMENDED_STT_OPTIONS,
-                            "title": "MiniMax STT",
-                            "unique_id": None,
-                        },
-                        {
-                            "subentry_type": "ai_task_data",
-                            "data": RECOMMENDED_AI_TASK_OPTIONS,
-                            "title": DEFAULT_AI_TASK_NAME,
-                            "unique_id": None,
-                        },
-                    ],
-                )
+                return self._create_or_update_entry(user_input)
         _LOGGER.debug("Showing user form")
         return self.async_show_form(
             step_id="user",
             data_schema=STEP_USER_DATA_SCHEMA,
             errors=errors,
+        )
+
+    def _create_or_update_entry(self, user_input: dict[str, Any]) -> ConfigFlowResult:
+        """Create the config entry, or update it during a re-auth flow."""
+        if self.source == SOURCE_REAUTH:
+            _LOGGER.debug("Re-auth flow, updating entry")
+            return self.async_update_reload_and_abort(
+                self._get_reauth_entry(),
+                data=user_input,
+            )
+        return self.async_create_entry(
+            title=DEFAULT_TITLE,
+            data=user_input,
+            subentries=_default_subentries(),
         )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
@@ -223,6 +245,17 @@ class MiniMaxConfigFlow(ConfigFlow, domain=DOMAIN):
             "stt": LLMSubentryFlowHandler,
             "ai_task_data": LLMSubentryFlowHandler,
         }
+
+
+def _recommended_options(subentry_type: str) -> dict[str, Any]:
+    """Return the recommended options of a subentry type."""
+    if subentry_type == "tts":
+        return RECOMMENDED_TTS_OPTIONS.copy()
+    if subentry_type == "stt":
+        return RECOMMENDED_STT_OPTIONS.copy()
+    if subentry_type == "ai_task_data":
+        return RECOMMENDED_AI_TASK_OPTIONS.copy()
+    return RECOMMENDED_CONVERSATION_OPTIONS.copy()
 
 
 class LLMSubentryFlowHandler(ConfigSubentryFlow):
@@ -255,15 +288,7 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
 
         if user_input is None:
             if self._is_new:
-                options: dict[str, Any]
-                if self._subentry_type == "tts":
-                    options = RECOMMENDED_TTS_OPTIONS.copy()
-                elif self._subentry_type == "stt":
-                    options = RECOMMENDED_STT_OPTIONS.copy()
-                elif self._subentry_type == "ai_task_data":
-                    options = RECOMMENDED_AI_TASK_OPTIONS.copy()
-                else:
-                    options = RECOMMENDED_CONVERSATION_OPTIONS.copy()
+                options = _recommended_options(self._subentry_type)
                 _LOGGER.debug(
                     "New subentry, using recommended options for: %s",
                     self._subentry_type,
@@ -277,19 +302,7 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
         else:
             _LOGGER.debug("User provided input keys: %s", list(user_input.keys()))
             if user_input.get(CONF_RECOMMENDED) == self.last_rendered_recommended:
-                if self._is_new:
-                    _LOGGER.info("Creating new subentry: %s", self._subentry_type)
-                    subentry_data = {k: v for k, v in user_input.items() if k != "name"}
-                    return self.async_create_entry(
-                        title=user_input["name"],
-                        data=subentry_data,
-                    )
-                _LOGGER.info("Updating existing subentry: %s", self._subentry_type)
-                return self.async_update_and_abort(
-                    self._get_entry(),
-                    self._get_reconfigure_subentry(),
-                    data=user_input,
-                )
+                return self._save_subentry(user_input)
             self.last_rendered_recommended = user_input.get(CONF_RECOMMENDED, False)
             options = user_input
 
@@ -305,6 +318,22 @@ class LLMSubentryFlowHandler(ConfigSubentryFlow):
             _LOGGER.exception("Error building schema")
             return self.async_abort(reason="unknown")
 
+    def _save_subentry(self, user_input: dict[str, Any]) -> SubentryFlowResult:
+        """Create or update the subentry with the given input."""
+        if self._is_new:
+            _LOGGER.info("Creating new subentry: %s", self._subentry_type)
+            subentry_data = {k: v for k, v in user_input.items() if k != "name"}
+            return self.async_create_entry(
+                title=user_input["name"],
+                data=subentry_data,
+            )
+        _LOGGER.info("Updating existing subentry: %s", self._subentry_type)
+        return self.async_update_and_abort(
+            self._get_entry(),
+            self._get_reconfigure_subentry(),
+            data=user_input,
+        )
+
     async_step_reconfigure = async_step_set_options
     async_step_user = async_step_set_options
 
@@ -317,6 +346,191 @@ def _suggested_chat_model(options: dict[str, Any]) -> str:
     return RECOMMENDED_CHAT_MODEL
 
 
+def _default_subentry_name(subentry_type: str, options: dict[str, Any]) -> str:
+    """Return the default entity name of a new subentry."""
+    default_name = options.get("name")
+    if default_name:
+        return default_name
+    if subentry_type == "tts":
+        return "MiniMax TTS"
+    if subentry_type == "stt":
+        return "MiniMax STT"
+    if subentry_type == "ai_task_data":
+        return DEFAULT_AI_TASK_NAME
+    return DEFAULT_CONVERSATION_NAME
+
+
+def _chat_model_selector() -> SelectSelector:
+    """Return the chat model selector."""
+    return SelectSelector(
+        SelectSelectorConfig(
+            mode=SelectSelectorMode.DROPDOWN,
+            options=[
+                SelectOptionDict(label=m["label"], value=m["value"])
+                for m in CHAT_MODELS
+            ],
+        )
+    )
+
+
+def _conversation_base_options(options: dict[str, Any]) -> dict:
+    """Return the base options of a conversation subentry."""
+    return {
+        vol.Optional(
+            CONF_PROMPT,
+            description={"suggested_value": options.get(CONF_PROMPT, "")},
+        ): TemplateSelector(),
+        vol.Optional(
+            CONF_CONVERSATION_TTS_ENABLED,
+            default=options.get(
+                CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
+            ),
+        ): BooleanSelector(),
+        vol.Optional(
+            CONF_MEMORY_ENABLED,
+            default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
+        ): BooleanSelector(),
+    }
+
+
+def _tts_base_options(options: dict[str, Any]) -> dict:
+    """Return the base options of a TTS subentry."""
+    return {
+        vol.Optional(
+            CONF_TTS_MODEL,
+            description={
+                "suggested_value": options.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL)
+            },
+        ): SelectSelector(
+            SelectSelectorConfig(
+                mode=SelectSelectorMode.DROPDOWN,
+                options=[
+                    SelectOptionDict(label=m["label"], value=m["value"])
+                    for m in TTS_MODELS
+                ],
+            )
+        ),
+        vol.Optional(
+            CONF_LANGUAGE_BOOST,
+            description={
+                "suggested_value": options.get(
+                    CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
+                )
+            },
+        ): TextSelector(),
+    }
+
+
+def _stt_base_options(options: dict[str, Any]) -> dict:
+    """Return the base options of an STT subentry."""
+    return {
+        vol.Optional(
+            CONF_PROMPT,
+            description={"suggested_value": options.get(CONF_PROMPT, "")},
+        ): TemplateSelector(),
+    }
+
+
+def _base_option_schema(subentry_type: str, options: dict[str, Any]) -> dict:
+    """Return the type specific base options of a subentry."""
+    if subentry_type == "conversation":
+        return _conversation_base_options(options)
+    if subentry_type == "tts":
+        return _tts_base_options(options)
+    if subentry_type == "stt":
+        return _stt_base_options(options)
+    return {}
+
+
+def _conversation_advanced_options(options: dict[str, Any]) -> dict:
+    """Return the advanced options of a conversation subentry."""
+    return {
+        vol.Optional(
+            CONF_CHAT_MODEL,
+            description={"suggested_value": _suggested_chat_model(options)},
+        ): _chat_model_selector(),
+        vol.Optional(
+            CONF_CONVERSATION_MAX_TOKENS,
+            default=options.get(
+                CONF_CONVERSATION_MAX_TOKENS, DEFAULT_CONVERSATION_MAX_TOKENS
+            ),
+        ): NumberSelector(NumberSelectorConfig(min=1000, max=32000, step=1000)),
+        vol.Optional(
+            CONF_CONVERSATION_EXPIRY_MINUTES,
+            default=options.get(
+                CONF_CONVERSATION_EXPIRY_MINUTES,
+                DEFAULT_CONVERSATION_EXPIRY_MINUTES,
+            ),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                mode=SelectSelectorMode.DROPDOWN,
+                options=[
+                    SelectOptionDict(label="5 minutes", value="5"),
+                    SelectOptionDict(label="15 minutes", value="15"),
+                    SelectOptionDict(label="30 minutes", value="30"),
+                    SelectOptionDict(label="1 hour", value="60"),
+                ],
+            )
+        ),
+        vol.Optional(
+            CONF_MEMORY_MAX_COUNT,
+            default=options.get(CONF_MEMORY_MAX_COUNT, DEFAULT_MEMORY_MAX_COUNT),
+        ): NumberSelector(NumberSelectorConfig(min=10, max=100, step=10)),
+        vol.Optional(
+            CONF_MEMORY_EXPIRY_DAYS,
+            default=options.get(CONF_MEMORY_EXPIRY_DAYS, DEFAULT_MEMORY_EXPIRY_DAYS),
+        ): NumberSelector(NumberSelectorConfig(min=0, max=365, step=30)),
+    }
+
+
+def _tts_advanced_options(options: dict[str, Any]) -> dict:
+    """Return the advanced options of a TTS subentry."""
+    return {
+        vol.Optional(
+            CONF_STREAMING_FORMAT,
+            default=options.get(CONF_STREAMING_FORMAT, DEFAULT_STREAMING_FORMAT),
+        ): SelectSelector(
+            SelectSelectorConfig(
+                mode=SelectSelectorMode.DROPDOWN,
+                options=STREAMING_FORMATS,
+            )
+        ),
+        vol.Optional(
+            CONF_SPEED,
+            default=options.get(CONF_SPEED, DEFAULT_SPEED),
+        ): NumberSelector(NumberSelectorConfig(min=0.5, max=2.0, step=0.1)),
+        vol.Optional(
+            CONF_VOL,
+            default=options.get(CONF_VOL, DEFAULT_VOL),
+        ): NumberSelector(NumberSelectorConfig(min=0.0, max=1.0, step=0.1)),
+        vol.Optional(
+            CONF_PITCH,
+            default=options.get(CONF_PITCH, DEFAULT_PITCH),
+        ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
+    }
+
+
+def _ai_task_advanced_options(options: dict[str, Any]) -> dict:
+    """Return the advanced options of an AI Task subentry."""
+    return {
+        vol.Optional(
+            CONF_CHAT_MODEL,
+            description={"suggested_value": _suggested_chat_model(options)},
+        ): _chat_model_selector(),
+    }
+
+
+def _advanced_option_schema(subentry_type: str, options: dict[str, Any]) -> dict:
+    """Return the type specific advanced options of a subentry."""
+    if subentry_type == "conversation":
+        return _conversation_advanced_options(options)
+    if subentry_type == "tts":
+        return _tts_advanced_options(options)
+    if subentry_type == "ai_task_data":
+        return _ai_task_advanced_options(options)
+    return {}
+
+
 def async_minimax_option_schema(
     is_new: bool,
     subentry_type: str,
@@ -326,77 +540,11 @@ def async_minimax_option_schema(
     schema: dict[vol.Required | vol.Optional, Any] = {}
 
     if is_new:
-        default_name = options.get("name")
-        if not default_name:
-            if subentry_type == "tts":
-                default_name = "MiniMax TTS"
-            elif subentry_type == "stt":
-                default_name = "MiniMax STT"
-            elif subentry_type == "ai_task_data":
-                default_name = DEFAULT_AI_TASK_NAME
-            else:
-                default_name = DEFAULT_CONVERSATION_NAME
-        schema[vol.Required("name", default=default_name)] = str
+        schema[
+            vol.Required("name", default=_default_subentry_name(subentry_type, options))
+        ] = str
 
-    if subentry_type == "conversation":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
-                vol.Optional(
-                    CONF_CONVERSATION_TTS_ENABLED,
-                    default=options.get(
-                        CONF_CONVERSATION_TTS_ENABLED, DEFAULT_CONVERSATION_TTS_ENABLED
-                    ),
-                ): BooleanSelector(),
-                vol.Optional(
-                    CONF_MEMORY_ENABLED,
-                    default=options.get(CONF_MEMORY_ENABLED, DEFAULT_MEMORY_ENABLED),
-                ): BooleanSelector(),
-            }
-        )
-    elif subentry_type == "tts":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_TTS_MODEL,
-                    description={
-                        "suggested_value": options.get(
-                            CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL
-                        )
-                    },
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label=m["label"], value=m["value"])
-                            for m in TTS_MODELS
-                        ],
-                    )
-                ),
-                vol.Optional(
-                    CONF_LANGUAGE_BOOST,
-                    description={
-                        "suggested_value": options.get(
-                            CONF_LANGUAGE_BOOST, DEFAULT_LANGUAGE_BOOST
-                        )
-                    },
-                ): TextSelector(),
-            }
-        )
-    elif subentry_type == "stt":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_PROMPT,
-                    description={"suggested_value": options.get(CONF_PROMPT, "")},
-                ): TemplateSelector(),
-            }
-        )
-    elif subentry_type == "ai_task_data":
-        pass
+    schema.update(_base_option_schema(subentry_type, options))
 
     schema[
         vol.Required(CONF_RECOMMENDED, default=options.get(CONF_RECOMMENDED, False))
@@ -405,104 +553,6 @@ def async_minimax_option_schema(
     if options.get(CONF_RECOMMENDED):
         return schema
 
-    if subentry_type == "conversation":
-        default_model = _suggested_chat_model(options)
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    description={"suggested_value": default_model},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label=m["label"], value=m["value"])
-                            for m in CHAT_MODELS
-                        ],
-                    )
-                ),
-                vol.Optional(
-                    CONF_CONVERSATION_MAX_TOKENS,
-                    default=options.get(
-                        CONF_CONVERSATION_MAX_TOKENS, DEFAULT_CONVERSATION_MAX_TOKENS
-                    ),
-                ): NumberSelector(NumberSelectorConfig(min=1000, max=32000, step=1000)),
-                vol.Optional(
-                    CONF_CONVERSATION_EXPIRY_MINUTES,
-                    default=options.get(
-                        CONF_CONVERSATION_EXPIRY_MINUTES,
-                        DEFAULT_CONVERSATION_EXPIRY_MINUTES,
-                    ),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label="5 minutes", value="5"),
-                            SelectOptionDict(label="15 minutes", value="15"),
-                            SelectOptionDict(label="30 minutes", value="30"),
-                            SelectOptionDict(label="1 hour", value="60"),
-                        ],
-                    )
-                ),
-                vol.Optional(
-                    CONF_MEMORY_MAX_COUNT,
-                    default=options.get(
-                        CONF_MEMORY_MAX_COUNT, DEFAULT_MEMORY_MAX_COUNT
-                    ),
-                ): NumberSelector(NumberSelectorConfig(min=10, max=100, step=10)),
-                vol.Optional(
-                    CONF_MEMORY_EXPIRY_DAYS,
-                    default=options.get(
-                        CONF_MEMORY_EXPIRY_DAYS, DEFAULT_MEMORY_EXPIRY_DAYS
-                    ),
-                ): NumberSelector(NumberSelectorConfig(min=0, max=365, step=30)),
-            }
-        )
-    elif subentry_type == "tts":
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_STREAMING_FORMAT,
-                    default=options.get(
-                        CONF_STREAMING_FORMAT, DEFAULT_STREAMING_FORMAT
-                    ),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=STREAMING_FORMATS,
-                    )
-                ),
-                vol.Optional(
-                    CONF_SPEED,
-                    default=options.get(CONF_SPEED, DEFAULT_SPEED),
-                ): NumberSelector(NumberSelectorConfig(min=0.5, max=2.0, step=0.1)),
-                vol.Optional(
-                    CONF_VOL,
-                    default=options.get(CONF_VOL, DEFAULT_VOL),
-                ): NumberSelector(NumberSelectorConfig(min=0.0, max=1.0, step=0.1)),
-                vol.Optional(
-                    CONF_PITCH,
-                    default=options.get(CONF_PITCH, DEFAULT_PITCH),
-                ): NumberSelector(NumberSelectorConfig(min=-10, max=10, step=1)),
-            }
-        )
-    elif subentry_type == "ai_task_data":
-        default_model = _suggested_chat_model(options)
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_CHAT_MODEL,
-                    description={"suggested_value": default_model},
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        mode=SelectSelectorMode.DROPDOWN,
-                        options=[
-                            SelectOptionDict(label=m["label"], value=m["value"])
-                            for m in CHAT_MODELS
-                        ],
-                    )
-                ),
-            }
-        )
+    schema.update(_advanced_option_schema(subentry_type, options))
 
     return schema

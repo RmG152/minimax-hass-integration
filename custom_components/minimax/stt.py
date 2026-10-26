@@ -98,6 +98,6 @@ class MiniMaxSTTEntity(MiniMaxBaseEntity, stt.SpeechToTextEntity):
             _LOGGER.warning("STT returned empty text")
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)
 
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Error during STT: %s", err)
+        except Exception:
+            _LOGGER.exception("Error during STT")
             return stt.SpeechResult(None, stt.SpeechResultState.ERROR)

@@ -2,7 +2,12 @@
 mypy
 pre-commit
 pytest
-pytest-homeassistant-custom-component
+pytest-cov
+# Pinned so CI installs the same Home Assistant release as the local test
+# environment (2026.2.3). An unpinned release breaks the test collection: HA
+# 2026.10 imports gazetteer_matcher, which is not declared in the homeassistant
+# package metadata and conflicts with the intents pin below.
+pytest-homeassistant-custom-component==0.13.316
 pytest-aiohttp
 pytest-asyncio
 # Linter version is pinned so local runs match CI and pre-commit.
@@ -10,8 +15,8 @@ pytest-asyncio
 # the ruff required-version in pyproject.toml.
 ruff==0.17.2
 # HA component dependencies that are not pulled transitively
-# Pinned to the versions required by the Home Assistant release used in tests,
-# newer releases drop modules (hassil.fuzzy, intents.FuzzyConfig) that HA imports.
+# Pinned to the versions required by the Home Assistant release used in tests
+# (2026.2.3, installed by pytest-homeassistant-custom-component 0.13.316).
 hassil==3.5.0
 home-assistant-intents==2026.1.28
 # Schema library used by HA 2026.10+ (replaces voluptuous); used to test

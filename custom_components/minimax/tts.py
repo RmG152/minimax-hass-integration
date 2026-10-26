@@ -124,8 +124,8 @@ class MiniMaxTTSEntity(MiniMaxBaseEntity, TextToSpeechEntity):
                 model=self.subentry.data.get(CONF_TTS_MODEL, RECOMMENDED_TTS_MODEL),
                 language_boost=language_boost or None,
             )
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Error during TTS: %s", err)
+        except Exception:
+            _LOGGER.exception("Error during TTS")
             return (None, None)
         else:
             _LOGGER.debug("TTS generated %d bytes of audio", len(audio_data))

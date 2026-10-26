@@ -68,20 +68,15 @@ class MiniMaxApiClient:
         system_prompt: str,
         max_tokens: int = DEFAULT_CHAT_MAX_TOKENS,
         tools: list[dict[str, Any]] | None = None,
-        timeout: float | None = None,
     ) -> dict[str, Any]:
         """Send chat request using Anthropic SDK."""
         try:
-            kwargs: dict[str, Any] = {}
-            if timeout is not None:
-                kwargs["timeout"] = timeout
             response = await self._anthropic.messages.create(
                 model=model,
                 max_tokens=max_tokens,
                 system=system_prompt,
                 messages=messages,
                 tools=tools,
-                **kwargs,
             )
 
             content_blocks = response.content
@@ -89,6 +84,7 @@ class MiniMaxApiClient:
             tool_calls = []
             content = []
 
+            # "thinking" blocks carry no answer text, so they are ignored.
             for block in content_blocks:
                 if block.type == "text":
                     text_parts.append(block.text)
@@ -109,8 +105,6 @@ class MiniMaxApiClient:
                             "input": block.input,
                         }
                     )
-                elif block.type == "thinking":
-                    pass
 
             return {
                 "success": True,
@@ -120,8 +114,8 @@ class MiniMaxApiClient:
                 "stop_reason": response.stop_reason,
             }
 
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Anthropic API error: %s", err)
+        except Exception as err:
+            _LOGGER.exception("Anthropic API error")
             return {
                 "success": False,
                 "error": str(err)[:200],
@@ -173,7 +167,7 @@ class MiniMaxApiClient:
                 raise MiniMaxApiClientError("No audio data in response")  # noqa: TRY301
 
         except Exception as err:
-            _LOGGER.error("TTS API error: %s", err)
+            _LOGGER.exception("TTS API error")
             raise MiniMaxApiClientError(str(err)) from err
 
     async def async_stt(
@@ -210,7 +204,7 @@ class MiniMaxApiClient:
                 raise MiniMaxApiClientError("STT returned empty text")  # noqa: TRY301
 
         except Exception as err:
-            _LOGGER.error("STT API error: %s", err)
+            _LOGGER.exception("STT API error")
             raise MiniMaxApiClientError(str(err)) from err
 
     async def async_image_generation(
@@ -268,7 +262,7 @@ class MiniMaxApiClient:
                 raise MiniMaxApiClientError("No image data in response")  # noqa: TRY301
 
         except Exception as err:
-            _LOGGER.error("Image generation API error: %s", err)
+            _LOGGER.exception("Image generation API error")
             raise MiniMaxApiClientError(str(err)) from err
 
     async def async_verify_connection(self) -> bool:

@@ -6,6 +6,7 @@ import pytest
 
 from custom_components.minimax.api import MiniMaxApiClient, MiniMaxApiClientError
 from custom_components.minimax.const import (
+    CHAT_TIMEOUT,
     DEFAULT_CHAT_MAX_TOKENS,
     MINIMAX_ANTHROPIC_API_URL,
     MINIMAX_IMAGE_API,
@@ -65,6 +66,15 @@ class TestMiniMaxApiClientInit:
     def test_init_stores_session(self, api_client, mock_session):
         """Test client stores the aiohttp session."""
         assert api_client._session is mock_session
+
+    def test_init_configures_request_timeout(self, mock_session):
+        """The Anthropic client is built with an explicit request timeout."""
+        with patch(
+            "custom_components.minimax.api.anthropic.AsyncAnthropic"
+        ) as mock_anth:
+            MiniMaxApiClient(api_key=TEST_API_KEY, session=mock_session)
+            http_client = mock_anth.call_args[1]["http_client"]
+            assert http_client.timeout.read == pytest.approx(CHAT_TIMEOUT)
 
     def test_api_key_property(self, api_client):
         """Test the public api_key property returns the stored key."""
@@ -209,8 +219,8 @@ class TestAsyncChat:
         assert result["success"] is False
         assert "error" in result
 
-    async def test_with_custom_timeout(self, api_client, mock_anthropic):
-        """Test chat request with custom timeout."""
+    async def test_uses_client_level_timeout(self, api_client, mock_anthropic):
+        """Chat requests rely on the timeout configured on the API client."""
         mock_anthropic.messages.create = AsyncMock(
             return_value=_make_chat_response([_make_text_block("ok")])
         )
@@ -218,10 +228,9 @@ class TestAsyncChat:
             model="MiniMax-M3.1-Flash",
             messages=[],
             system_prompt="",
-            timeout=15.0,
         )
         call_kwargs = mock_anthropic.messages.create.call_args[1]
-        assert call_kwargs["timeout"] == pytest.approx(15.0)
+        assert "timeout" not in call_kwargs
 
     async def test_empty_content(self, api_client, mock_anthropic):
         """Test empty content returns empty text."""

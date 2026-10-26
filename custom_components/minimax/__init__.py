@@ -6,19 +6,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.typing import ConfigType
 
 from .api import MiniMaxApiClient, MiniMaxApiClientError
 from .const import DOMAIN, LOGGER, PLATFORMS
 
 type MiniMaxConfigEntry = ConfigEntry[MiniMaxApiClient]
 
-CONFIG_SCHEMA = cv.empty_config_schema(DOMAIN)
-
-
-async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up MiniMax integration."""
-    return True
+# Config-entry-only integration: YAML setup is not supported, so the schema
+# only reports a helpful error when a user still has a "minimax:" YAML block.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> bool:
@@ -61,9 +57,3 @@ async def async_update_options(hass: HomeAssistant, entry: MiniMaxConfigEntry) -
 async def async_unload_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> bool:
     """Unload MiniMax entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
-
-
-async def async_migrate_entry(hass: HomeAssistant, entry: MiniMaxConfigEntry) -> bool:
-    """Migrate entry."""
-    LOGGER.debug("Migrating from version %s:%s", entry.version, entry.minor_version)
-    return True

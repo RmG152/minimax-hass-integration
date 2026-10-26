@@ -31,9 +31,10 @@ CONF_RECOMMENDED = "recommended"
 CONF_PROMPT = "prompt"
 CONF_CHAT_MODEL = "chat_model"
 
-RECOMMENDED_CHAT_MODEL = "MiniMax-M3.1-Flash"
+MINIMAX_M3_1_FLASH = "MiniMax-M3.1-Flash"
+RECOMMENDED_CHAT_MODEL = MINIMAX_M3_1_FLASH
 RECOMMENDED_TTS_MODEL = "speech-2.8-hd"
-RECOMMENDED_STT_MODEL = "MiniMax-M3.1-Flash"
+RECOMMENDED_STT_MODEL = MINIMAX_M3_1_FLASH
 
 CONF_TTS_MODEL = "tts_model"
 
@@ -63,7 +64,7 @@ DEFAULT_CHAT_MAX_TOKENS = 4096
 CHAT_TIMEOUT = 30
 
 CHAT_MODELS = [
-    {"label": "MiniMax-M3.1-Flash (Recommended)", "value": "MiniMax-M3.1-Flash"},
+    {"label": "MiniMax-M3.1-Flash (Recommended)", "value": MINIMAX_M3_1_FLASH},
     {"label": "MiniMax-M3", "value": "MiniMax-M3"},
 ]
 

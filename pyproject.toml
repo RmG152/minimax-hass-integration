@@ -300,7 +300,9 @@ split-on-trailing-comma = false
 "tests/**" = ["PTH", "SLF001", "PLC0415", "TID251"]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 25
+# Kept in sync with the SonarCloud cognitive complexity limit (python:S3776),
+# so ruff rejects a function before SonarCloud reports it.
+max-complexity = 15
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

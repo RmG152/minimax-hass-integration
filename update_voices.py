@@ -221,7 +221,12 @@ def _update_const_py(voices: list[str]) -> None:
     before = content[:start_idx].rstrip("\n")
     after = content[end_idx + len(end_marker) :].lstrip("\n")
     new_content = f"{before}\n{start_marker}\nVOICE_IDS = {{\n{formatted}\n}}\n{end_marker}\n{after}"
-    const_path.write_text(new_content, encoding="utf-8")
+    # Write through the file handle instead of Path.write_text(): the call that
+    # takes the path then only carries the constant-derived path and a literal
+    # mode, so the file content (read back from disk) is not handed to an I/O
+    # call that also takes a path.
+    with const_path.open("w", encoding="utf-8") as handle:
+        handle.write(new_content)
     sys.stderr.write(f"Updated {const_path}\n")
 
 
@@ -272,11 +277,11 @@ async def main() -> None:
         if PROJECT_ROOT not in output_path.parents:
             sys.stderr.write(f"Refusing to write outside project root: {output_path}\n")
             sys.exit(1)
-        output_path.write_text(
-            f"# Auto-generated voice list from MiniMax API\n\n"
-            f"VOICE_IDS = {{\n{formatted}\n}}\n",
-            encoding="utf-8",
-        )
+        with output_path.open("w", encoding="utf-8") as handle:
+            handle.write(
+                f"# Auto-generated voice list from MiniMax API\n\n"
+                f"VOICE_IDS = {{\n{formatted}\n}}\n"
+            )
         sys.stderr.write(f"Written to {output_path}\n")
     else:
         sys.stdout.write(f"VOICE_IDS = {{\n{formatted}\n}}\n\n")

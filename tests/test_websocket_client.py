@@ -115,6 +115,16 @@ async def _empty_text_chunks() -> Any:
         yield ""
 
 
+async def _drain_stream(client: MiniMaxT2AWebSocketClient) -> None:
+    """Consume the whole stream of a client with empty text chunks.
+
+    Keeping the stream consumption in its own helper leaves a single
+    invocation inside the ``pytest.raises`` block of the tests that assert
+    on the raised error.
+    """
+    _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+
+
 def _make_client(hass: MagicMock, **overrides: Any) -> MiniMaxT2AWebSocketClient:
     """Build a client with sensible defaults."""
     kwargs: dict[str, Any] = {
@@ -371,7 +381,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="during connect"):
-                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+                await _drain_stream(client)
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_unexpected_connect_event(self, mock_session):
@@ -385,7 +395,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="expected connected_success"):
-                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+                await _drain_stream(client)
 
     @pytest.mark.asyncio
     async def test_stream_wraps_connection_errors(self, mock_session):
@@ -398,7 +408,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="WebSocket error"):
-                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+                await _drain_stream(client)
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_invalid_json_during_handshake(self, mock_session):
@@ -421,7 +431,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="invalid JSON"):
-                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+                await _drain_stream(client)
 
     @pytest.mark.asyncio
     async def test_stream_raises_on_close_during_handshake(self, mock_session):
@@ -441,7 +451,7 @@ class TestStreamLifecycle:
         ):
             client = _make_client(MagicMock())
             with pytest.raises(HomeAssistantError, match="closed unexpectedly"):
-                _ = [chunk async for chunk in client.stream(_empty_text_chunks())]
+                await _drain_stream(client)
 
     @pytest.mark.asyncio
     async def test_stream_ends_on_task_error_during_streaming(self, mock_session):

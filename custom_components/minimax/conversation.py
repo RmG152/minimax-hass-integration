@@ -50,36 +50,51 @@ def _get_exposed_entities(hass: HomeAssistant, assistant: str) -> dict[str, Any]
     return llm._get_exposed_entities(hass, assistant)  # noqa: SLF001
 
 
+_STATIC_CONTEXT_HEADER = (
+    "\n\nStatic Context - Your Home Assistant devices and their states:\n"
+)
+_NO_ENTITIES_INFO = "\n\nNo exposed entities configured.\n"
+
+
 def _build_system_prompt(user_prompt: str, hass: HomeAssistant, agent_id: str) -> str:
     """Build system prompt with exposed entity state."""
     try:
         exposed = _get_exposed_entities(hass, agent_id)
-        entities_info = ""
 
         if exposed and exposed.get("entities"):
-            entities_info = (
-                "\n\nStatic Context - Your Home Assistant devices and their states:\n"
-            )
-            for entity_data in exposed["entities"].values():
-                entities_info += f"- {entity_data.get('name', entity_data.get('entity_id'))}: {entity_data.get('state', 'unknown')}\n"
+            entities_info = _exposed_entities_info(exposed)
         else:
-            all_states = hass.states.async_all()
-            if all_states:
-                entities_info = "\n\nStatic Context - Your Home Assistant devices and their states:\n"
-                for state in sorted(all_states, key=lambda s: s.entity_id):
-                    if state.entity_id.startswith(
-                        "automation."
-                    ) or state.entity_id.startswith("scene."):
-                        continue
-                    entities_info += f"- {state.name}: {state.state}\n"
-            else:
-                entities_info = "\n\nNo exposed entities configured.\n"
+            entities_info = _all_states_info(hass)
 
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get exposed entities: %s", err)
         return user_prompt
     else:
         return f"{user_prompt}{entities_info}"
+
+
+def _exposed_entities_info(exposed: dict[str, Any]) -> str:
+    """Return the static context of the entities exposed to the assistant."""
+    entries = [
+        f"- {entity_data.get('name', entity_data.get('entity_id'))}: "
+        f"{entity_data.get('state', 'unknown')}\n"
+        for entity_data in exposed["entities"].values()
+    ]
+    return _STATIC_CONTEXT_HEADER + "".join(entries)
+
+
+def _all_states_info(hass: HomeAssistant) -> str:
+    """Return the static context of all states, ignoring automations and scenes."""
+    all_states = hass.states.async_all()
+    if not all_states:
+        return _NO_ENTITIES_INFO
+
+    lines = [_STATIC_CONTEXT_HEADER]
+    for state in sorted(all_states, key=lambda s: s.entity_id):
+        if state.entity_id.startswith(("automation.", "scene.")):
+            continue
+        lines.append(f"- {state.name}: {state.state}\n")
+    return "".join(lines)
 
 
 def _service_attr(service_data: Any, name: str, default: Any = None) -> Any:
@@ -94,91 +109,104 @@ def _service_attr(service_data: Any, name: str, default: Any = None) -> Any:
     return getattr(service_data, name, default)
 
 
+KEY_DOMAINS = [
+    "homeassistant",
+    "light",
+    "switch",
+    "climate",
+    "fan",
+    "cover",
+    "lock",
+    "alarm_control_panel",
+    "media_player",
+    "input_boolean",
+    "automation",
+    "script",
+]
+
+
+def _service_descriptions(hass: HomeAssistant) -> dict[str, dict[str, Any]]:
+    """Return the descriptions of the services of the relevant domains."""
+    descriptions: dict[str, dict[str, Any]] = {}
+    services = hass.services.async_services()
+
+    for domain in services:
+        if domain not in KEY_DOMAINS:
+            continue
+        descriptions[domain] = {
+            service_name: {
+                "name": service_name,
+                "description": _service_attr(service_data, "description", ""),
+                "fields": _service_attr(service_data, "fields", {}),
+            }
+            for service_name, service_data in services[domain].items()
+        }
+
+    return descriptions
+
+
+def _field_type(field_desc: dict[str, Any]) -> str:
+    """Return the JSON type of a service field."""
+    if field_desc.get("schema"):
+        return "string"
+    if field_desc.get("example"):
+        return type(field_desc["example"]).__name__
+    return "string"
+
+
+def _service_tool(
+    domain: str, service_name: str, service_desc: dict[str, Any]
+) -> dict[str, Any]:
+    """Return the tool definition of a single Home Assistant service."""
+    properties: dict[str, Any] = {}
+    required: list[str] = []
+
+    for field_name, field_desc in service_desc.get("fields", {}).items():
+        properties[field_name] = {
+            "type": _field_type(field_desc),
+            "description": field_desc.get("description", field_name),
+        }
+        if field_desc.get("required"):
+            required.append(field_name)
+
+    if "entity_id" not in properties:
+        properties["entity_id"] = {
+            "type": "string",
+            "description": "The entity ID to target (e.g., light.living_room)",
+        }
+
+    tool: dict[str, Any] = {
+        "name": f"{domain}.{service_name}",
+        "description": service_desc.get(
+            "name", service_desc.get("description", f"{domain} {service_name}")
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": properties,
+        },
+    }
+
+    if required:
+        tool["input_schema"]["required"] = required
+
+    return tool
+
+
 def _get_homeassistant_tools(hass: HomeAssistant) -> list[dict[str, Any]]:
     """Get Home Assistant services as tools for MiniMax."""
-    tools = []
-
-    key_domains = [
-        "homeassistant",
-        "light",
-        "switch",
-        "climate",
-        "fan",
-        "cover",
-        "lock",
-        "alarm_control_panel",
-        "media_player",
-        "input_boolean",
-        "automation",
-        "script",
-    ]
+    tools: list[dict[str, Any]] = []
 
     try:
-        services = hass.services.async_services()
-        descriptions = {}
-        for domain in services:
-            if domain in key_domains:
-                descriptions[domain] = {}
-                for service_name, service_data in services[domain].items():
-                    descriptions[domain][service_name] = {
-                        "name": service_name,
-                        "description": _service_attr(service_data, "description", ""),
-                        "fields": _service_attr(service_data, "fields", {}),
-                    }
+        descriptions = _service_descriptions(hass)
     except Exception as err:  # noqa: BLE001
         LOGGER.warning("Could not get service descriptions: %s", err)
         return tools
-    else:
-        for domain, services in descriptions.items():
-            if domain not in key_domains:
+
+    for domain, services in descriptions.items():
+        for service_name, service_desc in services.items():
+            if service_name.startswith("_"):
                 continue
-
-            for service_name, service_desc in services.items():
-                if service_name.startswith("_"):
-                    continue
-
-                tool_name = f"{domain}.{service_name}"
-                description = service_desc.get(
-                    "name", service_desc.get("description", f"{domain} {service_name}")
-                )
-
-                properties = {}
-                required = []
-                fields = service_desc.get("fields", {})
-
-                for field_name, field_desc in fields.items():
-                    field_type = "string"
-                    if field_desc.get("schema"):
-                        field_type = "string"
-                    elif field_desc.get("example"):
-                        field_type = type(field_desc["example"]).__name__
-
-                    properties[field_name] = {
-                        "type": field_type,
-                        "description": field_desc.get("description", field_name),
-                    }
-                    if field_desc.get("required"):
-                        required.append(field_name)
-
-                if "entity_id" not in properties:
-                    properties["entity_id"] = {
-                        "type": "string",
-                        "description": "The entity ID to target (e.g., light.living_room)",
-                    }
-
-                tool = {
-                    "name": tool_name,
-                    "description": description,
-                    "input_schema": {
-                        "type": "object",
-                        "properties": properties,
-                    },
-                }
-
-                if required:
-                    tool["input_schema"]["required"] = required
-
-                tools.append(tool)
+            tools.append(_service_tool(domain, service_name, service_desc))
 
     LOGGER.debug("Generated %d Home Assistant tools", len(tools))
     return tools
@@ -225,6 +253,12 @@ def _trim_conversation_history(
     return trimmed
 
 
+def _is_tool_id_mismatch(err: Exception) -> bool:
+    """Return True when an error was caused by a tool result ID mismatch."""
+    err_str = str(err).lower()
+    return "tool id" in err_str and "not found" in err_str
+
+
 async def _call_service(
     hass: HomeAssistant, domain: str, service: str, data: dict[str, Any]
 ) -> dict[str, Any]:
@@ -239,7 +273,7 @@ async def _call_service(
         )
         LOGGER.debug("Service call %s.%s result: %s", domain, service, result)
     except Exception as err:  # noqa: BLE001
-        LOGGER.error("Service call failed: %s", err)
+        LOGGER.exception("Service call failed")
         return {"success": False, "error": str(err)}
     else:
         return {"success": True, "result": result}
@@ -442,38 +476,51 @@ class MiniMaxConversationEntity(
             return "Memory system not initialized"
 
         if name == "remember_user_fact":
-            fact = args.get("fact", "")
-            category = args.get("category", "other")
-            if not fact:
-                return "No fact provided to remember"
-            memory_id = await self._memory_store.async_add_fact(fact, category)
-            return f"Remembered: {fact} (ID: {memory_id[:8]}...)"
+            return await self._remember_fact(args)
 
         if name == "recall_user_facts":
-            facts = await self._memory_store.async_get_facts()
-            if not facts:
-                return "No memories stored yet."
-            fact_list = []
-            for f in facts:
-                cat = f.get("category", "other")
-                fact_list.append(f"- [{cat}] {f['fact']}")
-            return "Remembered facts:\n" + "\n".join(fact_list)
+            return await self._recall_facts()
 
         if name == "forget_user_fact":
-            fact = args.get("fact", "")
-            if not fact:
-                return "No fact specified to forget"
-            removed = await self._memory_store.async_remove_fact(fact)
-            if removed:
-                return f"Forgotten: {fact}"
-            return f"Could not find memory matching: {fact}"
+            return await self._forget_fact(args)
 
         if name == "forget_all_user_facts":
-            count = await self._memory_store.async_get_memory_count()
-            await self._memory_store.async_clear()
-            return f"Cleared all {count} memories"
+            return await self._forget_all_facts()
 
         return "Unknown memory command"
+
+    async def _remember_fact(self, args: dict[str, Any]) -> str:
+        """Store a new fact in the memory store."""
+        fact = args.get("fact", "")
+        category = args.get("category", "other")
+        if not fact:
+            return "No fact provided to remember"
+        memory_id = await self._memory_store.async_add_fact(fact, category)
+        return f"Remembered: {fact} (ID: {memory_id[:8]}...)"
+
+    async def _recall_facts(self) -> str:
+        """Return the stored facts."""
+        facts = await self._memory_store.async_get_facts()
+        if not facts:
+            return "No memories stored yet."
+        fact_list = [f"- [{f.get('category', 'other')}] {f['fact']}" for f in facts]
+        return "Remembered facts:\n" + "\n".join(fact_list)
+
+    async def _forget_fact(self, args: dict[str, Any]) -> str:
+        """Remove a fact matching the given text from the memory store."""
+        fact = args.get("fact", "")
+        if not fact:
+            return "No fact specified to forget"
+        removed = await self._memory_store.async_remove_fact(fact)
+        if removed:
+            return f"Forgotten: {fact}"
+        return f"Could not find memory matching: {fact}"
+
+    async def _forget_all_facts(self) -> str:
+        """Remove every stored fact from the memory store."""
+        count = await self._memory_store.async_get_memory_count()
+        await self._memory_store.async_clear()
+        return f"Cleared all {count} memories"
 
     async def _get_memory_section(self) -> str:
         """Get memory section for system prompt."""
@@ -516,66 +563,72 @@ class MiniMaxConversationEntity(
             error = result.get("error", "Unknown error")
             raise MiniMaxApiClientError(f"API error: {error}")
 
+        tool_calls = [
+            {
+                "id": tc.get("id", ""),
+                "name": tc.get("name", ""),
+                "input": tc.get("input", {}),
+            }
+            for tc in result.get("tool_calls", [])
+        ]
+
+        if not tool_calls:
+            return result.get("text", ""), messages
+
         content_blocks = result.get("content", [])
-        has_tool_use = result.get("tool_calls", [])
+        text_parts = [
+            block.get("text", "")
+            for block in content_blocks
+            if block.get("type") == "text"
+        ]
 
-        if has_tool_use:
-            tool_calls = []
-            text_parts = []
+        return await self._chat_with_tool_calls(
+            system_prompt,
+            messages,
+            tools,
+            model,
+            content_blocks,
+            text_parts,
+            tool_calls,
+        )
 
-            text_parts = [
-                block.get("text", "")
-                for block in content_blocks
-                if block.get("type") == "text"
-            ]
+    async def _chat_with_tool_calls(
+        self,
+        system_prompt: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        model: str,
+        content_blocks: list[dict[str, Any]],
+        text_parts: list[str],
+        tool_calls: list[dict[str, Any]],
+    ) -> tuple[str, list[dict[str, Any]]]:
+        """Run the tool calls and ask the model again with their results."""
+        _LOGGER.debug("Tool calls returned: %d", len(tool_calls))
+        tool_results = await self._execute_tool_calls(tool_calls, messages)
 
-            tool_calls = [
-                {
-                    "id": tc.get("id", ""),
-                    "name": tc.get("name", ""),
-                    "input": tc.get("input", {}),
-                }
-                for tc in result.get("tool_calls", [])
-            ]
+        messages.append(
+            {
+                "role": "assistant",
+                "content": content_blocks,
+            }
+        )
 
-            if tool_calls:
-                _LOGGER.debug("Tool calls returned: %d", len(tool_calls))
-                tool_results = await self._execute_tool_calls(tool_calls, messages)
+        messages.extend(
+            {"role": "user", "content": [result_item]} for result_item in tool_results
+        )
 
-                messages.append(
-                    {
-                        "role": "assistant",
-                        "content": content_blocks,
-                    }
+        try:
+            return await self._chat_with_api(system_prompt, messages, tools, model)
+        except Exception as tool_error:
+            if _is_tool_id_mismatch(tool_error):
+                _LOGGER.warning(
+                    "Tool result ID mismatch, returning text response without tool results"
                 )
-
-                messages.extend(
-                    {"role": "user", "content": [result_item]}
-                    for result_item in tool_results
-                )
-
-                try:
-                    return await self._chat_with_api(
-                        system_prompt, messages, tools, model
-                    )
-                except Exception as tool_error:
-                    if (
-                        "tool id" in str(tool_error).lower()
-                        and "not found" in str(tool_error).lower()
-                    ):
-                        _LOGGER.warning(
-                            "Tool result ID mismatch, returning text response without tool results"
-                        )
-                        text = "\n".join(text_parts) if text_parts else ""
-                        if not text:
-                            text = FALLBACK_RESPONSE
-                        return text, messages
-                    raise
-
-            text = "\n".join(text_parts) if text_parts else ""
-            return text, messages
-        text = result.get("text", "")
-        return text, messages
+                text = "\n".join(text_parts) if text_parts else ""
+                if not text:
+                    text = FALLBACK_RESPONSE
+                return text, messages
+            raise
 
     def _cleanup_expired_conversations(self) -> None:
         """Remove expired or oldest conversations to enforce limits."""
@@ -676,8 +729,8 @@ class MiniMaxConversationEntity(
             }
             new_history = [*trimmed_history, user_message, assistant_message]
             self._conversation_history[conversation_id] = (new_history, time.time())
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.error("Conversation error: %s", err)
+        except Exception:
+            _LOGGER.exception("Conversation error")
             response_text = FALLBACK_RESPONSE
 
         response_text = re.sub(

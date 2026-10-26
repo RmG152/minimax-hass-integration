@@ -16,7 +16,6 @@ from homeassistant.util.json import json_loads
 from . import MiniMaxConfigEntry
 from .api import MiniMaxApiClient
 from .const import (
-    CHAT_TIMEOUT,
     CONF_CHAT_MODEL,
     CONF_RECOMMENDED,
     RECOMMENDED_AI_TASK_MAX_TOKENS,
@@ -143,11 +142,7 @@ def _validator_to_openapi(value: Any) -> dict[str, Any] | None:
     """Convert a voluptuous or probatio validator into an OpenAPI-style dictionary."""
     validators = getattr(value, "validators", None)
     if validators:
-        for validator in validators:
-            converted = _value_to_openapi(validator)
-            if converted.get("type") != "any":
-                return converted
-        return {"type": "any"}
+        return _validators_to_openapi(validators)
 
     coerced = getattr(value, "type", None)
     if coerced is not None:
@@ -155,22 +150,41 @@ def _validator_to_openapi(value: Any) -> dict[str, Any] | None:
 
     container = getattr(value, "container", None)
     if container is not None:
-        options = list(container)
-        if options:
-            return {"type": _json_type_of_value(options[0]) or "any", "enum": options}
-        return {"type": "any"}
+        return _container_to_openapi(container)
 
+    return _range_to_openapi(value)
+
+
+def _validators_to_openapi(validators: Any) -> dict[str, Any]:
+    """Convert a list of validators into an OpenAPI-style dictionary."""
+    for validator in validators:
+        converted = _value_to_openapi(validator)
+        if converted.get("type") != "any":
+            return converted
+    return {"type": "any"}
+
+
+def _container_to_openapi(container: Any) -> dict[str, Any]:
+    """Convert a validator container (a set of enum options) into an OpenAPI-style dictionary."""
+    options = list(container)
+    if not options:
+        return {"type": "any"}
+    return {"type": _json_type_of_value(options[0]) or "any", "enum": options}
+
+
+def _range_to_openapi(value: Any) -> dict[str, Any] | None:
+    """Convert a numeric range validator into an OpenAPI-style dictionary."""
     minimum = getattr(value, "min", None)
     maximum = getattr(value, "max", None)
-    if minimum is not None or maximum is not None:
-        result: dict[str, Any] = {"type": "number"}
-        if minimum is not None:
-            result["minimum"] = minimum
-        if maximum is not None:
-            result["maximum"] = maximum
-        return result
+    if minimum is None and maximum is None:
+        return None
 
-    return None
+    result: dict[str, Any] = {"type": "number"}
+    if minimum is not None:
+        result["minimum"] = minimum
+    if maximum is not None:
+        result["maximum"] = maximum
+    return result
 
 
 def _json_type(value: Any) -> str | None:
@@ -214,43 +228,46 @@ def _format_object_schema(schema: dict[str, Any], indent: int) -> str:
     properties = schema.get("properties", {})
     required = set(schema.get("required", []))
     lines: list[str] = []
-    prefix = "  " * indent
 
     if indent == 0:
         lines.append("{")
 
     for key, prop in properties.items():
-        is_required = key in required
-        prop_type = prop.get("type", "any") if isinstance(prop, dict) else "any"
-        prop_desc = prop.get("description", "") if isinstance(prop, dict) else ""
-        prop_enum = prop.get("enum") if isinstance(prop, dict) else None
-
-        if prop_type == "object" and isinstance(prop, dict):
-            nested = _openapi_schema_to_text(prop, indent + 1)
-            line = f'{prefix}  "{key}": {nested}'
-        elif prop_type == "array" and isinstance(prop, dict):
-            items = prop.get("items", {})
-            item_type = items.get("type", "any") if isinstance(items, dict) else "any"
-            line = f'{prefix}  "{key}": [<{item_type}>]'
-        else:
-            type_hint = prop_type
-            if prop_enum:
-                type_hint = (
-                    f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
-                )
-            line = f'{prefix}  "{key}": <{type_hint}>'
-
-        if prop_desc:
-            line += f" - {prop_desc}"
-        if is_required:
-            line += " (required)"
-
-        lines.append(line)
+        lines.append(_format_property_line(key, prop, key in required, indent))
 
     if indent == 0:
         lines.append("}")
 
     return "\n".join(lines)
+
+
+def _format_property_line(key: str, prop: Any, is_required: bool, indent: int) -> str:
+    """Format a single property of an object schema as a text line."""
+    prefix = "  " * indent
+    prop_dict = prop if isinstance(prop, dict) else {}
+    prop_type = prop_dict.get("type", "any")
+    prop_desc = prop_dict.get("description", "")
+    prop_enum = prop_dict.get("enum")
+
+    if prop_type == "object":
+        nested = _openapi_schema_to_text(prop_dict, indent + 1)
+        line = f'{prefix}  "{key}": {nested}'
+    elif prop_type == "array":
+        items = prop_dict.get("items", {})
+        item_type = items.get("type", "any") if isinstance(items, dict) else "any"
+        line = f'{prefix}  "{key}": [<{item_type}>]'
+    else:
+        type_hint = prop_type
+        if prop_enum:
+            type_hint = f"{prop_type} (one of: {', '.join(str(e) for e in prop_enum)})"
+        line = f'{prefix}  "{key}": <{type_hint}>'
+
+    if prop_desc:
+        line += f" - {prop_desc}"
+    if is_required:
+        line += " (required)"
+
+    return line
 
 
 def _format_array_schema(schema: dict[str, Any], indent: int) -> str:
@@ -318,6 +335,79 @@ def _extract_json(text: str) -> str:
     return text.strip()
 
 
+def _build_chat_messages(chat_log: conversation.ChatLog) -> list[dict[str, Any]]:
+    """Build the API message list from a conversation chat log."""
+    messages: list[dict[str, Any]] = []
+    for content in chat_log.content[1:]:
+        if isinstance(content, conversation.UserContent):
+            messages.append({"role": "user", "content": content.content or ""})
+        elif isinstance(content, conversation.AssistantContent):
+            messages.append({"role": "assistant", "content": content.content or ""})
+    return messages
+
+
+def _extract_system_prompt(chat_log: conversation.ChatLog) -> str:
+    """Return the system prompt of a conversation chat log, if it has one."""
+    if chat_log.content and chat_log.content[0].role == "system":
+        return chat_log.content[0].content or ""
+    return ""
+
+
+def _append_schema_instruction(system_prompt: str, structure: Any) -> str:
+    """Return the system prompt extended with the JSON schema instruction."""
+    schema_description = _schema_to_description(structure)
+    json_instruction = (
+        "\n\nCRITICAL: You must respond with ONLY a valid JSON object matching this exact schema. "
+        "Do not include any markdown formatting, explanations, or other text. "
+        "Your entire response must be parseable as JSON. "
+        "Do not add any fields that are not listed below, and do not omit any required fields.\n\n"
+        f"{schema_description}"
+    )
+    if system_prompt:
+        return system_prompt + json_instruction
+    return json_instruction.lstrip()
+
+
+def _parse_json_response(text: str) -> Any:
+    """Parse the JSON payload of a structured AI task response."""
+    if not text:
+        msg = "MiniMax returned an empty response, expected structured data"
+        raise HomeAssistantError(msg)
+
+    parse_errors = []
+    candidates = [text, _extract_json(text)]
+    data = None
+    for attempt, candidate in enumerate(candidates, 1):
+        if not candidate:
+            continue
+        _LOGGER.debug(
+            "AI task: JSON parse attempt %d, candidate_length=%d, candidate=%s",
+            attempt,
+            len(candidate),
+            candidate[:300],
+        )
+        try:
+            data = json_loads(candidate)
+            _LOGGER.debug("AI task: JSON parsed successfully on attempt %d", attempt)
+            break
+        except (ValueError, TypeError) as err:
+            parse_errors.append(f"Attempt {attempt}: {err}")
+            if attempt == len(candidates):
+                _LOGGER.error(
+                    "AI task: Failed to parse JSON. Errors: %s. "
+                    "Response length=%d, hash=%s, snippet=%s",
+                    "; ".join(parse_errors),
+                    len(text),
+                    hashlib.sha256(text.encode()).hexdigest(),
+                    text[:200],
+                )
+
+    if data is None:
+        _raise_parse_error()
+
+    return data
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -382,35 +472,16 @@ class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
                 )
             )
 
-            messages = []
-            for content in chat_log.content[1:]:
-                if isinstance(content, conversation.UserContent):
-                    msg_content = content.content or ""
-                    messages.append({"role": "user", "content": msg_content})
-                elif isinstance(content, conversation.AssistantContent):
-                    msg_content = content.content or ""
-                    messages.append({"role": "assistant", "content": msg_content})
-
-            system_prompt = ""
-            if chat_log.content and chat_log.content[0].role == "system":
-                system_prompt = chat_log.content[0].content or ""
+            messages = _build_chat_messages(chat_log)
+            system_prompt = _extract_system_prompt(chat_log)
 
             if task.structure:
-                schema_description = _schema_to_description(task.structure)
-                json_instruction = (
-                    "\n\nCRITICAL: You must respond with ONLY a valid JSON object matching this exact schema. "
-                    "Do not include any markdown formatting, explanations, or other text. "
-                    "Your entire response must be parseable as JSON. "
-                    "Do not add any fields that are not listed below, and do not omit any required fields.\n\n"
-                    f"{schema_description}"
+                system_prompt = _append_schema_instruction(
+                    system_prompt, task.structure
                 )
-                if system_prompt:
-                    system_prompt += json_instruction
-                else:
-                    system_prompt = json_instruction.lstrip()
                 _LOGGER.debug(
                     "AI task: added JSON schema instruction to system prompt, schema:\n%s",
-                    schema_description,
+                    _schema_to_description(task.structure),
                 )
 
             _LOGGER.debug(
@@ -424,7 +495,6 @@ class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
                 messages=messages,
                 system_prompt=system_prompt,
                 max_tokens=RECOMMENDED_AI_TASK_MAX_TOKENS,
-                timeout=CHAT_TIMEOUT,
             )
 
             if not result.get("success", False):
@@ -454,52 +524,15 @@ class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
                     data=text,
                 )
 
-            if not text:
-                msg = "MiniMax returned an empty response, expected structured data"
-                raise HomeAssistantError(msg)  # noqa: TRY301
-
-            data = None
-            parse_errors = []
-            candidates = [text, _extract_json(text)]
-            for attempt, candidate in enumerate(candidates, 1):
-                if not candidate:
-                    continue
-                _LOGGER.debug(
-                    "AI task: JSON parse attempt %d, candidate_length=%d, candidate=%s",
-                    attempt,
-                    len(candidate),
-                    candidate[:300],
-                )
-                try:
-                    data = json_loads(candidate)
-                    _LOGGER.debug(
-                        "AI task: JSON parsed successfully on attempt %d", attempt
-                    )
-                    break
-                except (ValueError, TypeError) as err:
-                    parse_errors.append(f"Attempt {attempt}: {err}")
-                    if attempt == len(candidates):
-                        _LOGGER.error(
-                            "AI task: Failed to parse JSON. Errors: %s. "
-                            "Response length=%d, hash=%s, snippet=%s",
-                            "; ".join(parse_errors),
-                            len(text),
-                            hashlib.sha256(text.encode()).hexdigest(),
-                            text[:200],
-                        )
-
-            if data is None:
-                _raise_parse_error()
-
             return ai_task.GenDataTaskResult(
                 conversation_id=chat_log.conversation_id,
-                data=data,
+                data=_parse_json_response(text),
             )
 
         except HomeAssistantError:
             raise
         except Exception as err:
-            _LOGGER.error("Error generating data: %s", err)
+            _LOGGER.exception("Error generating data")
             raise HomeAssistantError(ERROR_GETTING_RESPONSE) from err
 
     async def _async_generate_image(
@@ -537,5 +570,5 @@ class MiniMaxAITaskEntity(MiniMaxBaseEntity, ai_task.AITaskEntity):
             )
 
         except Exception as err:
-            _LOGGER.error("Error generating image: %s", err)
+            _LOGGER.exception("Error generating image")
             raise HomeAssistantError(f"Error generating image: {err}") from err

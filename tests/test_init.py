@@ -5,8 +5,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.minimax import (
-    async_migrate_entry,
-    async_setup,
     async_setup_entry,
     async_unload_entry,
     async_update_options,
@@ -168,22 +166,16 @@ class TestAsyncUpdateOptions:
         hass.config_entries.async_reload.assert_called_once_with(config_entry.entry_id)
 
 
-class TestAsyncSetup:
-    """Test async_setup."""
+class TestConfigSchema:
+    """Test the config entry only schema."""
 
-    async def test_async_setup_returns_true(self, hass):
-        """Test async_setup returns True."""
-        result = await async_setup(hass, {})
-        assert result is True
+    def test_schema_is_config_entry_only(self, caplog):
+        """The integration declares a config-entry-only schema."""
+        from custom_components.minimax import CONFIG_SCHEMA
+        from custom_components.minimax.const import DOMAIN
 
+        assert CONFIG_SCHEMA({}) == {}
 
-class TestAsyncMigrateEntry:
-    """Test async_migrate_entry."""
-
-    async def test_migrate_entry_returns_true(self, hass):
-        """Test async_migrate_entry returns True."""
-        from tests import create_mock_minimax_config_entry
-
-        config_entry = create_mock_minimax_config_entry(hass)
-        result = await async_migrate_entry(hass, config_entry)
-        assert result is True
+        with caplog.at_level("ERROR", "homeassistant.helpers.config_validation"):
+            CONFIG_SCHEMA({DOMAIN: {"unexpected": True}})
+        assert "does not support YAML setup" in caplog.text

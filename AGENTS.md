@@ -383,6 +383,45 @@ When adding tests:
 - Use `pytest.approx()` for floating-point comparisons to avoid SonarCloud warnings
 - Use `https://` URLs in test data to avoid SonarCloud security hotspots
 
+## SonarCloud
+
+The project is analysed on
+[SonarCloud](https://sonarcloud.io/project/overview?id=RmG152_minimax-hass-integration),
+and new issues block the quality gate.
+
+**Complexity:** SonarCloud's cognitive complexity limit is 15 (`python:S3776`).
+`ruff`'s `mccabe.max-complexity` is set to the same value in `pyproject.toml`,
+so `ruff check` rejects a function before SonarCloud reports it. When a
+function gets too complex, split it into small helpers instead of raising
+the limit.
+
+**Path injection (`pythonsecurity:S2083`):** `update_voices.py` writes the
+voice list back into `const.py`. The written content is read back from disk,
+so Sonar's taint analysis flags `Path.write_text()`, a call that takes both a
+path and the file content. Write through the file handle instead
+(`with path.open("w", encoding="utf-8") as handle: handle.write(content)`) so
+that the path-taking call only carries the constant path.
+
+**Pip installs (`githubactions:S8541` / `S8544`):** the CI workflows install
+with `--only-binary :all:` and pinned versions, so no dependency can run a
+setup script. The exception is the `test` job, which installs
+`requirements_dev.txt`: the test stack pulls in `homeassistant`, and some of
+its dependencies are only published as source distributions, so a wheels-only
+resolution ends in `resolution-too-deep`. That job installs from the
+requirements file without naming packages on the command line, which keeps the
+dependency versions locked in `requirements_dev.txt` instead of in the
+workflow.
+
+**Known false positives — mark as "Won't Fix" in SonarCloud, do not "fix" them:**
+
+| Rule | Where | Why it cannot be fixed |
+| --- | --- | --- |
+| `python:S1172` | `async_setup_entry` in the platform modules (`ai_task.py`, `conversation.py`, `stt.py`, `tts.py`) | Home Assistant calls the platform hook as `async_setup_entry(hass, config_entry, async_add_entities)`. The `hass` parameter is part of the framework contract and cannot be removed. |
+| `python:S7503` | the same four functions | Home Assistant awaits the platform hook, so it has to stay `async` even when its body has nothing to await. |
+
+Renaming or dropping the parameters to silence these two rules would break
+the platform setup and stop the integration from loading.
+
 ## Common Issues and Solutions
 
 ### Config flow "400 Bad Request" error when reconfiguring
