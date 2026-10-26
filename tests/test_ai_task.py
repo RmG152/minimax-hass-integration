@@ -717,6 +717,29 @@ class TestSchemaConversion:
         assert rating["minimum"] == 0
         assert rating["maximum"] == 5
 
+    def test_range_with_only_maximum(self):
+        """Test a range without a minimum only exposes the maximum."""
+        schema = vol.Schema({vol.Required("rating"): vol.Range(max=5)})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        rating = result["properties"]["rating"]
+        assert rating["type"] == "number"
+        assert rating["maximum"] == 5
+        assert "minimum" not in rating
+
+    def test_range_with_only_minimum(self):
+        """Test a range without a maximum only exposes the minimum."""
+        schema = vol.Schema({vol.Required("rating"): vol.Range(min=0)})
+        result = minimax_ai_task._schema_to_openapi(schema)
+        rating = result["properties"]["rating"]
+        assert rating["type"] == "number"
+        assert rating["minimum"] == 0
+        assert "maximum" not in rating
+
+    def test_key_without_marker_schema_uses_its_string_form(self):
+        """Test a key that is not a marker is named after its string form."""
+        key = object()
+        assert minimax_ai_task._describe_key(key) == (str(key), None, False)
+
     def test_unsupported_validator_is_untyped(self):
         """Test unknown validators fall back to an untyped property."""
         schema = vol.Schema({vol.Required("x"): lambda value: value})
@@ -927,6 +950,11 @@ class TestSchemaLibraryIsolation:
 
         saved = {name: sys.modules.pop(name) for name in blocked if name in sys.modules}
         blocker = _Blocker()
+
+        with pytest.raises(ModuleNotFoundError):
+            blocker.find_spec("voluptuous")
+        assert blocker.find_spec("json") is None
+
         sys.meta_path.insert(0, blocker)
         try:
             module = importlib.reload(minimax_ai_task)
@@ -980,6 +1008,33 @@ def _make_chat_log_no_system():
     log.async_add_user_content = MagicMock(side_effect=_add_user)
     log.async_add_assistant_content_without_tools = MagicMock()
     return log
+
+
+class TestBuildChatMessages:
+    """Test the chat message list built from a conversation chat log."""
+
+    def test_content_that_is_neither_user_nor_assistant_is_skipped(self):
+        """Test content that is neither user nor assistant is left out."""
+        from homeassistant.components import conversation
+
+        system_content = MagicMock()
+        system_content.role = "system"
+        system_content.content = "Follow the instructions."
+
+        chat_log = MagicMock()
+        chat_log.content = [
+            system_content,
+            conversation.UserContent(content="Hi", attachments=[]),
+            system_content,
+            conversation.AssistantContent(agent_id="agent_001", content="Hello"),
+        ]
+
+        messages = minimax_ai_task._build_chat_messages(chat_log)
+
+        assert messages == [
+            {"role": "user", "content": "Hi"},
+            {"role": "assistant", "content": "Hello"},
+        ]
 
 
 class TestGenerateDataChatLogVariants:
