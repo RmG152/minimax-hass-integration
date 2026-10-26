@@ -44,6 +44,12 @@ python -m pytest tests/ --cov --cov-branch --cov-report=xml
 
 Aim for 100% patch coverage on new/modified lines.
 
+**Ruff version is pinned** in four places — keep them in sync when bumping it:
+`.github/workflows/ci.yaml` (`pip install ruff==X`), `.pre-commit-config.yaml`
+(`rev: vX`), `requirements_dev.txt` (`ruff==X`) and `pyproject.toml`
+(`required-version = ">=X"`). The pin keeps CI, pre-commit and local runs on the
+same rule set, so a new ruff release cannot turn the CI red on its own.
+
 **Windows caveat:** the `python -m pytest ...` command above **does not
 work on Windows** — `pytest-homeassistant-custom-component` imports
 `fcntl`/`resource`/`pwd`/`grp` at collection time and those modules do

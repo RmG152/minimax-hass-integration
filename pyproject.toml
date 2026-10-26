@@ -1,99 +1,3 @@
-[tool.black]
-target-version = ["py38"]
-exclude = 'generated'
-
-[tool.isort]
-profile = "black"
-force_sort_within_sections = true
-known_first_party = [
-    "custom_components.minimax",
-    "homeassistant",
-    "tests",
-]
-forced_separate = [
-    "tests",
-]
-combine_as_imports = true
-default_section = "THIRDPARTY"
-
-[tool.pylint.MASTER]
-ignore = [
-    "tests",
-]
-jobs = 2
-load-plugins = [
-    "pylint.extensions.typing",
-    "pylint_pytest",
-]
-persistent = false
-extension-pkg-whitelist = [
-    "aiohttp",
-]
-
-[tool.pylint.BASIC]
-class-const-naming-style = "any"
-good-names = [
-    "_",
-    "ev",
-    "ex",
-    "fp",
-    "i",
-    "id",
-    "j",
-    "k",
-    "Run",
-    "T",
-]
-
-[tool.pylint."MESSAGES CONTROL"]
-disable = [
-    "format",
-    "abstract-method",
-    "cyclic-import",
-    "duplicate-code",
-    "inconsistent-return-statements",
-    "locally-disabled",
-    "not-context-manager",
-    "too-few-public-methods",
-    "too-many-ancestors",
-    "too-many-arguments",
-    "too-many-branches",
-    "too-many-instance-attributes",
-    "too-many-lines",
-    "too-many-locals",
-    "too-many-public-methods",
-    "too-many-return-statements",
-    "too-many-statements",
-    "too-many-boolean-expressions",
-    "unused-argument",
-    "wrong-import-order",
-]
-enable = [
-    "use-symbolic-message-instead",
-]
-
-[tool.pylint.REPORTS]
-score = false
-
-[tool.pylint.TYPECHECK]
-ignored-classes = [
-    "_CountingAttr",
-]
-
-[tool.pylint.FORMAT]
-expected-line-ending-format = "LF"
-
-[tool.pylint.EXCEPTIONS]
-overgeneral-exceptions = [
-    "builtins.BaseException",
-    "builtins.Exception",
-    "homeassistant.HomeAssistantError",
-]
-
-[tool.pylint.TYPING]
-py-version = "3.8"
-runtime-typing = false
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -131,7 +35,7 @@ warn_unreachable = true
 show_error_codes = true
 
 [tool.ruff]
-required-version = ">=0.15.12"
+required-version = ">=0.17.2"
 
 [tool.ruff.lint]
 select = [

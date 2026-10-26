@@ -1,14 +1,14 @@
 -r requirements.txt
-black
-flake8
 mypy
 pre-commit
 pytest
 pytest-homeassistant-custom-component
-pylint-pytest
-pylint
 pytest-aiohttp
 pytest-asyncio
+# Linter version is pinned so local runs match CI and pre-commit.
+# Keep in sync with .github/workflows/ci.yaml, .pre-commit-config.yaml and
+# the ruff required-version in pyproject.toml.
+ruff==0.17.2
 # HA component dependencies that are not pulled transitively
 # Pinned to the versions required by the Home Assistant release used in tests,
 # newer releases drop modules (hassil.fuzzy, intents.FuzzyConfig) that HA imports.
