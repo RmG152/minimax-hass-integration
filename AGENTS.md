@@ -175,6 +175,8 @@ ssh root@10.0.100.61 'tail /homeassistant/homeassistant.log | grep -i minimax'
 
 **Important:** 
 - For HACS updates: commit to GitHub, create a new release, then use HACS to redownload
+- Add release notes to `CHANGELOG.md` before tagging a release; the release workflow sets
+  `manifest.json`'s version from the git tag, so never bump it by hand
 - After deploying, always restart HA with `ha core restart` and wait ~65 seconds
 - Verify files compile with `python3 -m py_compile` before restarting
 - manifest.json must include: `version`, `config_flow`, `requirements:[]`, `dependencies:[]`
